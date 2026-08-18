@@ -13,11 +13,16 @@ from pathlib import Path
 
 import yaml
 
+from app.config import ASSET_EXTENSIONS
+
 FRONTMATTER_OPEN = "---"
 _CLOSE_FENCE_RE = re.compile(r"(?m)^---[ \t]*\r?$")
 _HEADING_RE = re.compile(r"(?m)^([#]{1,6})[ \t]+(.+?)[ \t]*\r?$")
 _WIKI_LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 _PAREN_LINK_RE = re.compile(r"!?\[([^\]]*)\]\(([^)\s]+)(?:\s+[\"'][^\"']*[\"'])?\)")
+# Asset 引用用宽松版本：允许文件名含空格（图片/附件的路径可能带空格）
+_ASSET_LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+_FENCE_LINE_RE = re.compile(r"^\s*(?:```|~~~)")
 _FENCE_RE = re.compile(r"(?ms)^```[^\n]*$(.*?)^```[ \t]*\r?$")
 _INLINE_CODE_RE = re.compile(r"`([^`]*)`")
 _REF_USE_RE = re.compile(r"\[([^\]]+)\]\[[^\]]*\]")
@@ -42,6 +47,7 @@ class ParsedDoc:
     headings: list[dict]  # [{"level": int, "text": str}]
     plain_text: str  # indexable text (markers stripped, content kept)
     links: list[Link]
+    asset_refs: list[str]
     word_count: int
     char_count: int
     line_count: int
@@ -62,11 +68,43 @@ def parse_markdown(text: str, rel_path: str) -> ParsedDoc:
         headings=headings,
         plain_text=plain,
         links=extract_links(body),
+        asset_refs=extract_asset_refs(body),
         word_count=word_count,
         char_count=len(plain),
         line_count=len(body.splitlines()),
         scan_error=fm_error,
     )
+
+
+def extract_asset_refs(body: str) -> list[str]:
+    """Media/attachment paths referenced by a document, in order, deduped.
+
+    Only targets whose extension is in ASSET_EXTENSIONS count (never .md —
+    those are document links). Fragments (#…) and query strings are stripped;
+    URLs / absolute paths are skipped; fenced code blocks are ignored.
+    """
+    refs: list[str] = []
+    in_fence = False
+    for line in body.splitlines():
+        if _FENCE_LINE_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        for match in _ASSET_LINK_RE.finditer(line):
+            target = match.group(1).strip()
+            if not target or "://" in target or target.lower().startswith(("data:", "mailto:")):
+                continue
+            base = target.split("#", 1)[0].split("?", 1)[0].strip()
+            if not base:
+                continue
+            while base.startswith("./"):  # 仅移除 './' 前缀，保留 '../' 供解析器处理
+                base = base[2:]
+            if Path(base).suffix.lower() not in ASSET_EXTENSIONS:
+                continue
+            if base not in refs:
+                refs.append(base)
+    return refs
 
 
 def extract_frontmatter(text: str) -> tuple[str, dict | None, str | None]:

@@ -1,22 +1,12 @@
 import { useMemo } from "react";
 
 import { categoryOf, type DocMeta, dirOf } from "../api";
+import { fmtTime } from "../docview";
 
 interface Props {
   docs: DocMeta[];
   dir: string | null;
   onOpen: (id: number, relPath: string) => void;
-}
-
-function fmtTime(mtimeNs: number): string {
-  const d = new Date(mtimeNs / 1_000_000);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
-      ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
-        d.getMinutes()
-      ).padStart(2, "0")}`;
 }
 
 export function DocList({ docs, dir, onOpen }: Props) {

@@ -8,12 +8,36 @@ from __future__ import annotations
 
 import json
 import posixpath
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import Connection, text
 
+from app.config import mime_for
 from app.scanner.parse import ParsedDoc
 
 _FTS_COLUMNS = "(docs_fts, rowid, title, body, headings)"
+
+
+@dataclass
+class AssetCandidate:
+    """One referenced asset of one document (resolved, file state known)."""
+
+    doc_rel: str  # source document's rel_path
+    rel_path: str  # resolved asset path relative to raw/
+    exists: bool
+    size: int
+    mtime_ns: int
+    sha256: str
+
+
+def resolve_asset_path(src_rel: str, base: str) -> str | None:
+    """Relative markdown reference -> raw/-relative path; None when unsafe."""
+    norm = posixpath.normpath(posixpath.join(posixpath.dirname(src_rel), base))
+    if norm.startswith(("..", "/")):
+        return None  # 逃逸出 raw/ 或绝对路径
+    return norm
 
 
 def fts_has(conn: Connection, doc_id: int) -> bool:
@@ -280,3 +304,92 @@ def detect_renames(conn: Connection, added_files: dict[str, tuple[object, Parsed
         replace_doc(conn, old_id, pd)
         renamed += 1
     return renamed
+
+
+def _iso(ns: int) -> str:
+    return datetime.fromtimestamp(ns / 1e9, tz=UTC).isoformat(timespec="seconds")
+
+
+def upsert_assets(
+    conn: Connection,
+    doc_ids: dict[str, int],
+    candidates: list[AssetCandidate],
+    parsed_docs: set[str],
+    now: str,
+) -> None:
+    """Persist asset rows inside the caller's transaction.
+
+    - File exists  -> full upsert (hash/mime/size refreshed on change).
+    - File missing -> row is kept with status='missing' (ui shows broken ref).
+    - References removed from a document -> its rows are pruned.
+    """
+    existing: list[dict] = []
+    missing: list[dict] = []
+    for c in candidates:
+        doc_id = doc_ids.get(c.doc_rel)
+        if doc_id is None:
+            continue
+        filename = c.rel_path.rsplit("/", 1)[-1]
+        base = {
+            "d": doc_id,
+            "p": c.rel_path,
+            "f": filename,
+            "e": Path(filename).suffix.lower(),
+            "now": now,
+        }
+        if c.exists:
+            existing.append(
+                {
+                    **base,
+                    "m": mime_for(filename),
+                    "size": c.size,
+                    "sha": c.sha256,
+                    "mtime": c.mtime_ns,
+                    "modified": _iso(c.mtime_ns),
+                }
+            )
+        else:
+            missing.append({**base, "size": 0, "sha": "", "mtime": 0, "modified": ""})
+
+    if existing:
+        conn.execute(
+            text(
+                "INSERT INTO assets (document_id, relative_path, filename, extension,"
+                " mime_type, size, sha256, mtime_ns, modified_at, status, last_seen)"
+                " VALUES (:d, :p, :f, :e, :m, :size, :sha, :mtime, :modified,"
+                " 'indexed', :now)"
+                " ON CONFLICT(document_id, relative_path) DO UPDATE SET"
+                " filename=excluded.filename, extension=excluded.extension,"
+                " mime_type=excluded.mime_type, size=excluded.size,"
+                " sha256=excluded.sha256, mtime_ns=excluded.mtime_ns,"
+                " modified_at=excluded.modified_at, status='indexed',"
+                " last_seen=excluded.last_seen"
+            ),
+            existing,
+        )
+    if missing:
+        conn.execute(
+            text(
+                "INSERT INTO assets (document_id, relative_path, filename, extension,"
+                " mime_type, size, sha256, mtime_ns, modified_at, status, last_seen)"
+                " VALUES (:d, :p, :f, :e, 'application/octet-stream', :size, :sha,"
+                " :mtime, :modified, 'missing', :now)"
+                " ON CONFLICT(document_id, relative_path) DO UPDATE SET status='missing',"
+                " last_seen=excluded.last_seen"
+            ),
+            missing,
+        )
+
+    # 修剪：本次解析成功且被扫描到的文档，其当前引用集合之外的行删除。
+    for src_rel in sorted(parsed_docs):
+        doc_id = doc_ids.get(src_rel)
+        if doc_id is None:
+            continue
+        refs = [c.rel_path for c in candidates if c.doc_rel == src_rel]
+        conn.execute(
+            text(
+                "DELETE FROM assets WHERE document_id = :d AND relative_path NOT IN"
+                " (SELECT value FROM json_each(:refs))"
+            ),
+            {"d": doc_id, "refs": json.dumps(refs, ensure_ascii=False)},
+        )

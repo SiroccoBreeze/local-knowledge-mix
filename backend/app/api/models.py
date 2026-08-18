@@ -99,6 +99,19 @@ class HealthResponse(BaseModel):
     last_scan_report: ScanReportModel | None
 
 
+class AssetMeta(BaseModel):
+    id: int
+    document_id: int
+    relative_path: str
+    filename: str
+    extension: str
+    mime_type: str
+    size: int
+    sha256: str
+    modified_at: str | None
+    status: str
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -139,6 +152,7 @@ __all__ = [
     "SearchResponse",
     "Neighbor",
     "NeighborsResponse",
+    "AssetMeta",
     "HealthResponse",
     "ErrorBody",
     "ErrorResponse",

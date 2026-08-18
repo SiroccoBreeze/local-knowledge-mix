@@ -6,6 +6,12 @@ import { DocList } from "./components/DocList";
 import { Reader } from "./components/Reader";
 import { SearchBox } from "./components/SearchBox";
 import { SearchResults } from "./components/SearchResults";
+import { ShareView } from "./components/ShareView";
+
+function shareIdFrom(path: string): number | null {
+  const m = /^\/share\/(\d+)\/?$/.exec(path);
+  return m ? Number(m[1]) : null;
+}
 
 export default function App() {
   const [docs, setDocs] = useState<DocMeta[] | null>(null);
@@ -15,11 +21,19 @@ export default function App() {
   const [results, setResults] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [openDoc, setOpenDoc] = useState<{ id: number; rel_path: string } | null>(null);
+  const [shareId, setShareId] = useState<number | null>(() => shareIdFrom(window.location.pathname));
 
   useEffect(() => {
     listAllDocuments()
       .then(setDocs)
       .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  // 支持浏览器前进/后退切换分享页
+  useEffect(() => {
+    const onPop = () => setShareId(shareIdFrom(window.location.pathname));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   // 全局搜索：输入防抖 + 实时显示
@@ -40,6 +54,19 @@ export default function App() {
   }, [query]);
 
   const openDocument = (id: number, rel_path: string) => setOpenDoc({ id, rel_path });
+
+  if (shareId !== null) {
+    return (
+      <div className="app">
+        <ShareView
+          docId={shareId}
+          onChange={() => {
+            /* 内部跳转：URL 已 pushState */
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -74,7 +101,7 @@ export default function App() {
             <Reader
               key={openDoc.id}
               docId={openDoc.id}
-              relPath={openDoc.rel_path}
+              docs={docs}
               onClose={() => setOpenDoc(null)}
               onOpen={openDocument}
             />
@@ -82,8 +109,10 @@ export default function App() {
             <div className="empty">
               <p>从左侧目录或搜索选择一篇文档。</p>
               <p className="dim">
-                用鼠标点击 markdown 内的相对链接 / WikiLink 可直接跳转。
+                阅读器支持标题/表格/代码块/图片/相对链接/WikiLink；点击正文中的
+                相对或 Wiki 链接可直接跳转。附件的链接会打开安全读取接口。
               </p>
+              <p className="dim">分享某篇文档：其阅读页详情下方可复制 /share/&lt;id&gt; 地址。</p>
             </div>
           )}
         </main>

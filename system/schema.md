@@ -57,7 +57,30 @@
   stem 唯一、title 唯一的顺序解析，都不唯一则 NULL（断链）。
 - `[text](relative.md)`：相对当前文件所在目录解析，逃逸出 raw/ 则 NULL。
 - `https?://` 链接：to_doc 恒为 NULL（外部资源）。
-- 图片 `![...](x.png)` 与非 `.md` 相对目标：不记录为文档链接。
+- 图片 `![...](x.png)` 与非 `.md` 相对目标：不记录为文档链接（走 assets）。
+
+### assets —— 被 Markdown 引用的媒体/附件索引（V0.3）
+
+> 文件**永远只存在于 raw/**，这里只是索引。同一文件被 N 篇文档引用 → N 行。
+
+| 字段 | 说明 |
+|---|---|
+| id | 主键 |
+| document_id | FK → documents(id)，引用它的文档 |
+| relative_path | 解析后的相对 raw/ 路径（`../assets/x.png` → `assets/x.png`） |
+| filename / extension | 文件名与小写扩展名（含点） |
+| mime_type / size / sha256 / mtime_ns / modified_at | 文件元数据与内容哈希 |
+| status | `indexed`（文件在）/ `missing`（文件被删，引用仍在） |
+| last_seen | 最近一次确认时间 |
+| UNIQUE(document_id, relative_path) | 去重 |
+
+维护规则（跟随增量扫描）：
+- 文件内容变化 → 哈希/大小/mtime 自动更新（mtime+size 一致时不重读文件）。
+- 文件被删 → 行保留、`status='missing'`；重新出现 → 自愈回 `indexed` 并带新哈希。
+- 文档撤掉引用 → 该行被修剪（其他文档的引用不受影响）。
+
+被识别为 Asset 的扩展名白名单（与 `/raw/` 端点共用）：
+`png jpg jpeg gif webp avif bmp ico svg pdf doc docx xls xlsx ppt pptx zip txt csv`。
 
 ### docs_fts —— contentless FTS5 索引
 

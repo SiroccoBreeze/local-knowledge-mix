@@ -53,6 +53,19 @@ export interface Neighbors {
   outgoing: Neighbor[];
 }
 
+export interface AssetMeta {
+  id: number;
+  document_id: number;
+  relative_path: string;
+  filename: string;
+  extension: string;
+  mime_type: string;
+  size: number;
+  sha256: string;
+  modified_at: string | null;
+  status: string;
+}
+
 const BASE = "/api/v1";
 
 async function readJson<T>(url: string): Promise<T> {
@@ -83,6 +96,14 @@ export async function listAllDocuments(): Promise<DocMeta[]> {
     offset += page.limit;
   }
   return out;
+}
+
+export function getDoc(id: number): Promise<DocMeta> {
+  return readJson(`${BASE}/documents/${id}`);
+}
+
+export function listAssets(docId: number): Promise<AssetMeta[]> {
+  return readJson(`${BASE}/documents/${docId}/assets`);
 }
 
 export function search(query: string, limit = 50): Promise<SearchResult> {

@@ -1,24 +1,34 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { Marked, type RendererObject, type Token } from "marked";
 
-import { dirOf, getDocContent, getNeighbors, rawUrl } from "../api";
+import { dirOf, rawUrl, type DocMeta } from "../api";
+import {
+  AssetPanel,
+  LinkPanels,
+  RelatedDocs,
+  docHeaderOf,
+  useDocData,
+  type LinkTarget,
+} from "../docview";
 
 interface Props {
   docId: number;
-  relPath: string;
-  onClose: () => void;
+  onClose?: () => void;
   onOpen: (id: number, relPath: string) => void;
-}
-
-interface LinkTarget {
-  id: number;
-  title: string;
-  rel_path: string;
+  docs: DocMeta[] | null; // 用于“相关文档”（同目录）
 }
 
 const WIKI_SCHEME = "lk-wiki:";
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+function slugify(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}\s_-]/gu, "")
+    .replace(/\s+/g, "-");
+}
 
 /** 把 marked 行内 token 摊平成纯文本（用于标题 id 与链接文字）。 */
 function tokenText(t: string | Token): string {
@@ -27,14 +37,6 @@ function tokenText(t: string | Token): string {
     return (t as { tokens: Token[] }).tokens.map(tokenText).join("");
   }
   return (t as { text?: string }).text ?? "";
-}
-
-function slugify(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}\s_-]/gu, "")
-    .replace(/\s+/g, "-");
 }
 
 /** [[目标]] / [[目标|别名]] → markdown 链接（代码围栏内不处理）。 */
@@ -161,36 +163,11 @@ export function renderMarkdown({ content, relPath, linkMap }: DomProps): string 
   return markdown.parse(content) as string;
 }
 
-export function Reader({ docId, relPath, onClose, onOpen }: Props) {
-  const [content, setContent] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [linkMap, setLinkMap] = useState<Map<string, LinkTarget>>(new Map());
+export function Reader({ docId, onClose, onOpen, docs }: Props) {
+  const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(docId);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let alive = true;
-    setContent(null);
-    setError(null);
-    setLinkMap(new Map());
-    getDocContent(docId)
-      .then((text) => alive && setContent(text))
-      .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)));
-    getNeighbors(docId)
-      .then((nb) => {
-        const map = new Map<string, LinkTarget>();
-        for (const out of nb.outgoing) {
-          // 相对链接用原文 target（markdown href 完全一致），wiki 用 [[target]]
-          map.set(out.target, { id: out.doc_id, title: out.title, rel_path: out.rel_path });
-        }
-        alive && setLinkMap(map);
-      })
-      .catch(() => {
-        /* 链接解析失败不影响阅读 */
-      });
-    return () => {
-      alive = false;
-    };
-  }, [docId]);
+  const relPath = meta?.rel_path ?? "";
+  const header = meta ? docHeaderOf(meta) : null;
 
   const html = useMemo(
     () => (content !== null ? renderMarkdown({ content, relPath, linkMap }) : ""),
@@ -216,12 +193,40 @@ export function Reader({ docId, relPath, onClose, onOpen }: Props) {
     <article className="reader">
       <header className="reader-header">
         <div className="reader-meta">
-          <span className="reader-path" title={relPath}>
-            {relPath}
-          </span>
-          <button className="close" onClick={onClose}>
-            返回列表
+          <div>
+            {header && <h1 className="reader-title">{header.title}</h1>}
+            <div className="reader-sub">
+              {header && (
+                <span className="reader-category">{header.category}</span>
+              )}
+              <span className="reader-path" title={relPath}>
+                {relPath}
+              </span>
+              {header && <span className="reader-time">修改于 {header.modifiedAt}</span>}
+            </div>
+          </div>
+          {onClose && (
+            <button className="close" onClick={onClose}>
+              返回列表
+            </button>
+          )}
+          <button
+            className="close"
+            title="复制本地只读分享地址"
+            onClick={() => {
+              const url = `${window.location.origin}/share/${docId}`;
+              navigator.clipboard?.writeText(url).then(
+                () => {
+                  const el = document.querySelector(".share-copied");
+                  if (el) el.classList.add("show");
+                },
+                () => undefined
+              );
+            }}
+          >
+            🔗 分享
           </button>
+          <span className="share-copied">已复制 /share/{docId}</span>
         </div>
       </header>
       {error ? (
@@ -229,12 +234,17 @@ export function Reader({ docId, relPath, onClose, onOpen }: Props) {
       ) : content === null ? (
         <div className="hint">加载中…</div>
       ) : (
-        <div
-          ref={containerRef}
-          className="markdown-body"
-          dangerouslySetInnerHTML={{ __html: html }}
-          onClick={handleClick}
-        />
+        <>
+          <div
+            ref={containerRef}
+            className="markdown-body"
+            dangerouslySetInnerHTML={{ __html: html }}
+            onClick={handleClick}
+          />
+          <AssetPanel assets={assets} />
+          <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={onOpen} />
+          <RelatedDocs docs={docs} currentRel={relPath} onOpen={onOpen} />
+        </>
       )}
     </article>
   );

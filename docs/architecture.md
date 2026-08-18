@@ -48,6 +48,21 @@ raw/  ──▶  Markdown Scanner（幂等快照对账器） ──▶  SQLite(c
 前端浏览（V0.2 已补）、AI/LLM、Embedding/向量、RAG、MCP、Agent、sources 导入、
 wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/K8s 组件。
 
+## V0.3：Assets + Share
+
+- **Asset 索引**：`assets` 表 = 被 Markdown 引用的媒体/附件索引（一行 = 一篇文档
+  对某个文件的引用）。扫描读阶段解析引用（宽松正则、忽略代码围栏）、resolve 判根、
+  mtime+size 快速通道复用旧哈希；写阶段 upsert（修改/缺失/自愈）+ 按文档修剪。
+  raw/ 依旧只读（有快照测试）。
+- **API**：`/documents/{id}/assets`、`/assets/{id}`；`/raw/{rel_path}` 白名单扩到
+  Asset 全类型（office/zip 附件下载头，图片/PDF/文本内联）。
+- **分享**：`npm run build` 后后端托管前端 dist（StaticFiles + SPA fallback），
+  `/share/{id}` 由前端 ShareView 渲染只读文档页（正文/图片/附件/出链/入链），
+  单端口即可局域网访问。
+- **前端**：阅读器升级为文档详情（标题/分类/路径/修改时间 + 图片/附件面板 +
+  出链/入链 + 同目录相关文档）；`shareIdFrom()` 解析路径进入分享模式；
+  分享页内部跳转走 pushState，前进/后退正常。
+
 ## V0.2：Knowledge Browser
 
 - 前端：React + TS + Vite（`frontend/`，无 UI 框架，marked 渲染 markdown），

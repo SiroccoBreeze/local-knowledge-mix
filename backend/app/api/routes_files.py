@@ -13,18 +13,15 @@ Security model:
 from __future__ import annotations
 
 import mimetypes
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.api.models import ErrorBody
-from app.config import get_settings
+from app.config import ASSET_EXTENSIONS, INLINE_MIME_PREFIXES, get_settings
 
 router = APIRouter(tags=["files"], prefix="/raw")
-
-MEDIA_SUFFIXES = frozenset(
-    {".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".svg"}
-)
 
 _FILE_NOT_FOUND = ErrorBody(code="FILE_NOT_FOUND", message="raw/ 下不存在该文件").model_dump()
 _FILE_TYPE_NOT_ALLOWED = ErrorBody(
@@ -54,15 +51,17 @@ def raw_file(rel_path: str):
 
     if not candidate.is_file():
         raise HTTPException(404, detail=_FILE_NOT_FOUND)
-    if candidate.suffix.lower() not in MEDIA_SUFFIXES:
+    if candidate.suffix.lower() not in ASSET_EXTENSIONS:
         raise HTTPException(403, detail=_FILE_TYPE_NOT_ALLOWED)
 
     media_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
-    return FileResponse(
-        candidate,
-        media_type=media_type,
-        headers={"X-Content-Type-Options": "nosniff"},
-    )
+    headers = {"X-Content-Type-Options": "nosniff"}
+    if not media_type.startswith(INLINE_MIME_PREFIXES):
+        # 可执行/压缩/Office 等一律附件下载，避免浏览器内联执行
+        headers["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{quote(candidate.name)}"
+        )
+    return FileResponse(candidate, media_type=media_type, headers=headers)
 
 
 def _unsafe_components(rel_path: str) -> bool:

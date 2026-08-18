@@ -48,8 +48,28 @@ cd frontend && npm install && npm run dev
 （标题/表格/代码块/图片/相对链接/WikiLink/引用/列表；点击相对/WikiLink 直接跳转）。
 
 生产构建：`cd frontend && npm run build`（产物在 `dist/`，可 `npm run preview`）。
-图片等媒体经 `GET /api/v1/raw/{rel_path}` 安全接口读取（仅 raw/ 内白名单类型、
-防路径穿越、不暴露目录列表）。
+
+## V0.3：Assets + Share（单一端口）
+
+增量扫描会自动把 Markdown 引用的媒体/附件建成 **Asset 索引**（白名单：
+png/jpg/gif/webp/avif/bmp/ico/svg/pdf/doc/xls/ppt/zip/txt/csv；只索引、不复制、不移动、
+不改 raw/）。`npm run build` 后，**后端直接托管前端**——一个端口全通：
+
+```bash
+cd backend && .venv/bin/python -m scripts.serve --host 0.0.0.0
+# 打开 http://<本机IP>:8000
+# 分享某篇文档（局域网只读）：http://<本机IP>:8000/share/<document_id>
+```
+
+新增 API：
+
+- `GET /api/v1/documents/{id}/assets` — 文档引用的全部附件（含缺失标记）
+- `GET /api/v1/assets/{id}` — 单个附件元数据
+- `GET /api/v1/raw/{rel_path}` — 附件内容（白名单 + 防穿越 + nosniff；
+  图片/pdf/txt 内联，office/zip 附件下载；Markdown 正文仅走 content 端点）
+
+前端文档页：标题/分类/路径/修改时间 + 正文（标题/表格/代码块/图片/相对链接/
+WikiLink/引用/列表）+ 图片与附件面板 + 出链/入链 + 同目录相关文档 + 一键复制分享地址。
 
 ## API
 

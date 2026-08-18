@@ -40,6 +40,24 @@ _STATEMENTS: tuple[str, ...] = (
     UNIQUE (from_doc, target)
 )""",
     "CREATE INDEX IF NOT EXISTS ix_links_to ON links(to_doc)",
+    # 被 Markdown 引用的媒体/附件索引（文件本身只在 raw/ 里存在）。
+    # 同一文件被 N 篇文档引用 → N 行（每篇文档各自持有引用关系）。
+    """CREATE TABLE IF NOT EXISTS assets (
+    id            INTEGER PRIMARY KEY,
+    document_id   INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    relative_path TEXT NOT NULL,
+    filename      TEXT NOT NULL,
+    extension     TEXT NOT NULL,
+    mime_type     TEXT NOT NULL DEFAULT 'application/octet-stream',
+    size          INTEGER NOT NULL DEFAULT 0,
+    sha256        TEXT NOT NULL DEFAULT '',
+    mtime_ns      INTEGER NOT NULL DEFAULT 0,
+    modified_at   TEXT NOT NULL,
+    status        TEXT NOT NULL DEFAULT 'indexed' CHECK (status IN ('indexed', 'missing')),
+    last_seen     TEXT NOT NULL,
+    UNIQUE (document_id, relative_path)
+)""",
+    "CREATE INDEX IF NOT EXISTS ix_assets_rel_path ON assets(relative_path)",
     # contentless FTS5: index only, no content copy. rowid == documents.id.
     """CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(
     title,

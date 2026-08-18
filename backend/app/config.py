@@ -5,6 +5,7 @@ All values are import-time constants, overridable via env vars (LK_*) or by
 tests that replace `app.config.settings`.
 """
 
+import mimetypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,6 +63,45 @@ class Settings:
 
 
 settings = Settings()
+
+
+def mime_for(filename: str) -> str:
+    """MIME 判定：优先系统映射，其次内置兜底表（office/zip 等在 Linux 上常缺失）。"""
+    guessed = mimetypes.guess_type(filename)[0]
+    if guessed:
+        return guessed
+    return _MIME_FALLBACKS.get(Path(filename).suffix.lower(), "application/octet-stream")
+
+
+# 被 Markdown 引用、会被索引为 Asset（并可由 /raw/ 安全读取）的文件类型。
+ASSET_EXTENSIONS = frozenset(
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".svg",
+        ".pdf",
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip",
+        ".txt", ".csv",
+    }
+)
+
+# 可内联渲染的类型（其余以附件形式下载）。
+INLINE_MIME_PREFIXES = ("image/", "text/", "application/pdf", "application/svg")
+
+_MIME_FALLBACKS = {
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".zip": "application/zip",
+    ".avif": "image/avif",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".webp": "image/webp",
+    ".csv": "text/csv",
+    ".txt": "text/plain",
+}
 
 
 def get_settings() -> Settings:

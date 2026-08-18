@@ -79,7 +79,9 @@ def run_scan(engine: Engine | None = None, *, full: bool = False) -> ScanReport:
     with engine.begin() as schema_conn:
         db_schema.ensure_schema(schema_conn)
 
-    work, failures, unchanged, skipped, seen = _read_phase(engine, raw_root, full)
+    work, failures, unchanged, skipped, seen, asset_candidates = _read_phase(
+        engine, raw_root, full
+    )
 
     with engine.begin() as conn:
         db_schema.ensure_schema(conn)
@@ -127,6 +129,21 @@ def run_scan(engine: Engine | None = None, *, full: bool = False) -> ScanReport:
         added = max(0, added - renames)
         changed += renames
 
+        # Assets: renames may have re-assigned ids, so read the final id map.
+        # Runs even when every document took the fast path (stale assets).
+        if seen:
+            rows = conn.execute(
+                text(
+                    "SELECT id, rel_path FROM documents WHERE rel_path IN"
+                    " (SELECT value FROM json_each(:rels))"
+                ),
+                {"rels": json.dumps(sorted(seen), ensure_ascii=False)},
+            ).mappings()
+            doc_id_by_rel = {row["rel_path"]: row["id"] for row in rows}
+            # 仅修剪"本次确认过引用集合"的文档（解析成功 ⇒ 有候选；失败文档不碰）
+            parsed_docs = {c.doc_rel for c in asset_candidates}
+            db_index.upsert_assets(conn, doc_id_by_rel, asset_candidates, parsed_docs, ended_iso)
+
         report = ScanReport(
             started_at=started_iso,
             finished_at=ended_iso,
@@ -154,8 +171,11 @@ def run_scan(engine: Engine | None = None, *, full: bool = False) -> ScanReport:
 
 def _read_phase(
     engine: Engine, raw_root, full: bool
-) -> tuple[list[_Work], list[_Failure], int, int, set[str]]:
-    """Walk, hash, parse — pure reads. Returns the diff plan for phase B."""
+) -> tuple[list[_Work], list[_Failure], int, int, set[str], list[object]]:
+    """Walk, hash, parse — pure reads (raw/ 严格只读)
+
+    Returns the diff plan for phase B plus resolved asset candidates.
+    """
     with engine.connect() as conn:
         existing = {
             row["rel_path"]: row
@@ -163,11 +183,27 @@ def _read_phase(
                 text("SELECT id, rel_path, sha256, mtime_ns, size, status FROM documents")
             ).mappings()
         }
+        existing_assets = {
+            (row["doc_rel"], row["relative_path"]): row
+            for row in conn.execute(
+                text(
+                    "SELECT a.relative_path, a.sha256, a.mtime_ns, a.size, a.status,"
+                    " d.rel_path AS doc_rel FROM assets a"
+                    " JOIN documents d ON d.id = a.document_id"
+                )
+            ).mappings()
+        }
 
     work: list[_Work] = []
     failures: list[_Failure] = []
     unchanged = skipped = 0
     seen: set[str] = set()
+    asset_candidates: list[db_index.AssetCandidate] = []
+
+    # 每篇文档的已解析引用（快速通道文档复用库中关联，避免重解析）
+    assets_by_doc_final: dict[str, list[str]] = {}
+    for a_row in existing_assets.values():
+        assets_by_doc_final.setdefault(a_row["doc_rel"], []).append(a_row["relative_path"])
 
     for fi in walk_files(raw_root):
         seen.add(fi.rel_path)
@@ -180,6 +216,11 @@ def _read_phase(
             and prev["size"] == fi.size
         ):
             unchanged += 1
+            asset_candidates.extend(
+                _candidates_from_refs(
+                    raw_root, fi.rel_path, assets_by_doc_final.get(fi.rel_path, []), existing_assets
+                )
+            )
             continue
         if fi.size > get_settings().max_file_bytes:
             skipped += 1
@@ -193,6 +234,11 @@ def _read_phase(
         sha = hashlib.sha256(data).hexdigest()
         if prev and not full and prev["sha256"] == sha:
             unchanged += 1
+            asset_candidates.extend(
+                _candidates_from_refs(
+                    raw_root, fi.rel_path, assets_by_doc_final.get(fi.rel_path, []), existing_assets
+                )
+            )
             continue
         try:
             pd = parse_markdown(data.decode("utf-8", errors="replace"), fi.rel_path)
@@ -200,8 +246,47 @@ def _read_phase(
             failures.append(_Failure(fi=fi, prev=prev, error=f"解析失败: {exc}"))
             continue
         work.append(_Work(fi=fi, sha=sha, pd=pd, prev=prev))
+        refs = [
+            db_index.resolve_asset_path(fi.rel_path, ref)
+            for ref in pd.asset_refs
+            if db_index.resolve_asset_path(fi.rel_path, ref) is not None
+        ]
+        asset_candidates.extend(
+            _candidates_from_refs(raw_root, fi.rel_path, refs, existing_assets)
+        )
 
-    return work, failures, unchanged, skipped, seen
+    return work, failures, unchanged, skipped, seen, asset_candidates
+
+
+def _candidates_from_refs(raw_root, doc_rel: str, refs: list[str], existing_assets) -> list[object]:
+    """Stat/hash each referenced path (fast path: reuse stored hash/size/mtime)."""
+    out: list[db_index.AssetCandidate] = []
+    seen_paths: set[str] = set()
+    for asset_rel in refs:
+        if asset_rel in seen_paths:
+            continue
+        seen_paths.add(asset_rel)
+        try:
+            st = (raw_root / asset_rel).stat()
+        except OSError:
+            out.append(db_index.AssetCandidate(doc_rel, asset_rel, False, 0, 0, ""))
+            continue
+        prev = existing_assets.get((doc_rel, asset_rel))
+        if (
+            prev
+            and prev["status"] != "missing"
+            and prev["size"] == st.st_size
+            and prev["mtime_ns"] == st.st_mtime_ns
+        ):
+            sha = prev["sha256"]
+        else:
+            try:
+                sha = hashlib.sha256((raw_root / asset_rel).read_bytes()).hexdigest()
+            except OSError:
+                out.append(db_index.AssetCandidate(doc_rel, asset_rel, False, 0, 0, ""))
+                continue
+        out.append(db_index.AssetCandidate(doc_rel, asset_rel, True, st.st_size, st.st_mtime_ns, sha))
+    return out
 
 
 def _count(conn: Connection, sql: str) -> int:
