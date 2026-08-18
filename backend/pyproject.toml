@@ -1,0 +1,48 @@
+[project]
+name = "local-knowledge"
+version = "0.1.0"
+description = "Local-first personal knowledge base: raw markdown -> index -> search API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",   # 纯 python 版（不引入 uvloop/httptools 等重二进制组件）
+    "sqlalchemy>=2.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+lk-scan = "scripts.scan:main"
+lk-serve = "scripts.serve:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "scripts"]
+
+[tool.ruff]
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "W", "B"]
+# E501: 长 SQL 字符串在 raw DDL 中不可避免，交由 SQLAlchemy 层自行规整
+ignore = ["E501", "UP035"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI 的依赖注入惯用法 (Depends/Query 在参数默认值中是预期行为)
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]
