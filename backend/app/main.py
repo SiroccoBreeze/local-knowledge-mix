@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.api import routes_docs, routes_scan, routes_search
+from app.api import routes_docs, routes_files, routes_scan, routes_search
 from app.api.models import HealthResponse, ScanReportModel
 from app.db.engine import get_engine
 from app.db.schema import ensure_schema, get_meta
@@ -29,8 +29,8 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="local-knowledge", version="0.1.0", lifespan=lifespan)
-for router in (routes_scan.router, routes_docs.router, routes_search.router):
+app = FastAPI(title="local-knowledge", version="0.2.0", lifespan=lifespan)
+for router in (routes_scan.router, routes_docs.router, routes_search.router, routes_files.router):
     app.include_router(router, prefix=_PREFIX)
 
 

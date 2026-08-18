@@ -45,5 +45,14 @@ raw/  ──▶  Markdown Scanner（幂等快照对账器） ──▶  SQLite(c
 
 ## 第一阶段明确不做
 
-前端（M4 延后）、AI/LLM、Embedding/向量、RAG、MCP、Agent、sources 导入、
+前端浏览（V0.2 已补）、AI/LLM、Embedding/向量、RAG、MCP、Agent、sources 导入、
 wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/K8s 组件。
+
+## V0.2：Knowledge Browser
+
+- 前端：React + TS + Vite（`frontend/`，无 UI 框架，marked 渲染 markdown），
+  开发模式经 Vite proxy 访问 `/api`。
+- 阅读器：相对链接与 `[[WikiLink]]` 经 `GET /documents/{id}/neighbors` 的
+  outgoing 精确映射到目标文档；图片相对路径在浏览器端解析为
+  `GET /api/v1/raw/{rel_path}`（后端白名单 + 防穿越 + 不列目录）。
+- API 仅新增上述一个只读端点；SQLite schema 未改动；raw/ 依然严格只读。

@@ -30,13 +30,34 @@ cd backend
 
 日常增量扫描：`.venv/bin/python -m scripts.scan`（几万文件也在毫秒级）。
 
+## Knowledge Browser（V0.2）
+
+本地 Web 知识库浏览器（React + TypeScript + Vite，无 UI 框架）：
+
+```bash
+# 终端 1：启动后端 API
+cd backend && .venv/bin/python -m scripts.serve
+
+# 终端 2：启动前端（开发模式，自动代理 /api → 8000）
+cd frontend && npm install && npm run dev
+# 打开 http://127.0.0.1:5173
+```
+
+功能：左侧目录树、中间文档列表（标题/路径/分类/修改时间）、顶部全局搜索
+（实时结果 + `<mark>` 高亮 + 行号）、右侧 Markdown 阅读器
+（标题/表格/代码块/图片/相对链接/WikiLink/引用/列表；点击相对/WikiLink 直接跳转）。
+
+生产构建：`cd frontend && npm run build`（产物在 `dist/`，可 `npm run preview`）。
+图片等媒体经 `GET /api/v1/raw/{rel_path}` 安全接口读取（仅 raw/ 内白名单类型、
+防路径穿越、不暴露目录列表）。
+
 ## API
 
 `GET /api/v1/health` · `POST /api/v1/scan` · `GET /api/v1/scan/status`
 
 `GET /api/v1/documents` · `GET /api/v1/documents/{id}` · `GET /api/v1/documents/{id}/content`
 
-`GET /api/v1/documents/{id}/neighbors` · `GET /api/v1/search?q=`
+`GET /api/v1/documents/{id}/neighbors` · `GET /api/v1/search?q=` · `GET /api/v1/raw/{rel_path}`（图片等媒体，仅 raw/ 内白名单类型）
 
 ## 测试与检查
 
