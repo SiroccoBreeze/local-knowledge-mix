@@ -85,15 +85,12 @@ export function useDocData(docId: number): DocData {
   return { meta, content, linkMap, assets, incoming, outgoing, error };
 }
 
-export function fmtTime(mtimeNs: number): string {
+export function fmtDate(mtimeNs: number): string {
   const d = new Date(mtimeNs / 1_000_000);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-        d.getDate()
-      ).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(
-        d.getMinutes()
-      ).padStart(2, "0")}`;
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
 }
 
 export function AssetPanel({ assets }: { assets: AssetMeta[] }) {
@@ -227,13 +224,18 @@ export interface DocHeaderInfo {
   title: string;
   category: string;
   modifiedAt: string;
+  tags: string[];
 }
 
 export function docHeaderOf(meta: DocMeta): DocHeaderInfo {
+  const tagsRaw = meta.frontmatter?.tags;
+  const tags =
+    Array.isArray(tagsRaw) ? tagsRaw.map(String) : typeof tagsRaw === "string" ? [tagsRaw] : [];
   return {
     relPath: meta.rel_path,
     title: meta.title || meta.rel_path,
     category: categoryOf(meta.rel_path),
-    modifiedAt: fmtTime(meta.mtime_ns),
+    modifiedAt: fmtDate(meta.mtime_ns),
+    tags,
   };
 }

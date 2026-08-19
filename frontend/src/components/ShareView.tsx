@@ -1,85 +1,118 @@
-/** /share/{id} — 本地只读分享页（无侧栏/列表，仅正文 + 资产 + 链接）。 */
+/** /share/{id} — 本地只读分享页（导航/搜索之外：仅文档 + 资产 + 链接）。 */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { AssetPanel, LinkPanels, docHeaderOf, useDocData } from "../docview";
-import { preprocessWiki, renderMarkdown } from "./Reader";
+import { docHeaderOf, useDocData } from "../docview";
+import { AssetPanel, LinkPanels } from "../docview";
+import { handleBodyClick, preprocessWiki, renderMarkdown, stripFrontmatter } from "../md";
 
 interface Props {
   docId: number;
-  onChange?: (id: number) => void;
 }
 
-export function ShareView({ docId, onChange }: Props) {
+export function ShareView({ docId }: Props) {
   const [cur, setCur] = useState(docId);
   const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(cur);
+  const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
   const relPath = meta?.rel_path ?? "";
+  const header = meta ? docHeaderOf(meta) : null;
 
-  const navigate = (id: number, relPath: string) => {
-    const next = { id, relPath };
-    setCur(next.id);
-    if (onChange) onChange(next.id);
+  // 浏览器前进/后退（popstate 更新 docId prop）时保持内部状态同步
+  useEffect(() => setCur(docId), [docId]);
+
+  const navigate = (id: number) => {
+    setCur(id);
     try {
-      window.history.pushState({}, "", `/share/${next.id}`);
+      window.history.pushState({}, "", `/share/${id}`);
     } catch {
-      /* 本地文件/旧浏览器降级：仅内部切换 */
+      /* 本地文件/旧浏览器降级 */
     }
   };
 
-  const html = useMemo(
-    () => (content !== null ? renderMarkdown({ content, relPath, linkMap }) : ""),
-    [content, relPath, linkMap]
-  );
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(null);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
-  const header = meta ? docHeaderOf(meta) : null;
+  const html = useMemo(() => {
+    if (content === null) return "";
+    return renderMarkdown({
+      content: preprocessWiki(stripFrontmatter(content)),
+      relPath,
+      linkMap,
+    });
+  }, [content, relPath, linkMap]);
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const hit = handleBodyClick(e);
+    if (!hit) return;
+    if (hit.said === "navigate" && hit.id !== undefined) navigate(hit.id);
+    else if (hit.said === "zoom" && hit.src) setZoom({ src: hit.src, alt: hit.alt ?? "" });
+    else if (hit.said === "copy") {
+      navigator.clipboard?.writeText(hit.text ?? "").then(() => {
+        const btn = (e.target as HTMLElement).closest("button.code-copy");
+        if (btn) {
+          const prev = btn.textContent;
+          btn.textContent = "已复制 ✓";
+          setTimeout(() => (btn.textContent = prev), 1200);
+        }
+      }, () => undefined);
+    }
+  };
 
   return (
-    <article className="reader share-reader">
-      <header className="reader-header share-header">
-        <span className="share-badge">🔗 分享</span>
-        <div>
-          {header && <h1 className="reader-title">{header.title}</h1>}
-          <div className="reader-sub">
-            {header && <span className="reader-category">{header.category}</span>}
-            <span className="reader-path" title={relPath}>
-              {relPath}
-            </span>
-            {header && <span className="reader-time">修改于 {header.modifiedAt}</span>}
-          </div>
+    <article className="reader">
+      <header className="doc-head">
+        <div className="doc-meta share-note">
+          <span className="share-badge">🔗 分享页</span>
+          <a className="text-btn" href="/">
+            回到知识库 →
+          </a>
         </div>
-        <a className="close" href="/" title="回到知识库">
-          回到知识库
-        </a>
+        <h1 className="doc-title">{header?.title}</h1>
+        <div className="doc-meta">
+          <span className="doc-collection">{header?.category}</span>
+          <span className="separator">·</span>
+          <span className="doc-time">更新于 {header?.modifiedAt}</span>
+        </div>
+        {header && header.tags.length > 0 && (
+          <div className="doc-tags">
+            {header.tags.map((t) => (
+              <span key={t} className="tag">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       {error ? (
-        <div className="error">文档不存在或不可用：{error}</div>
+        <div className="list-empty">文档不存在或不可用：{error}</div>
       ) : content === null ? (
-        <div className="hint">加载中…</div>
+        <div className="list-empty">加载中…</div>
       ) : (
         <>
           <div
             className="markdown-body"
             dangerouslySetInnerHTML={{ __html: html }}
-            onClick={(e) => {
-              const target = (e.target as HTMLElement).closest(
-                "a[data-open]"
-              ) as HTMLAnchorElement | null;
-              if (!target) return;
-              e.preventDefault();
-              const id = Number(target.dataset.open);
-              if (Number.isFinite(id)) navigate(id, target.dataset.path ?? "");
-            }}
+            onClick={handleClick}
           />
-          <AssetPanel assets={assets} />
-          <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={navigate} />
+          {assets.length > 0 && <AssetPanel assets={assets} />}
+          {(outgoing.length > 0 || incoming.length > 0) && (
+            <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={(id) => navigate(id)} />
+          )}
         </>
       )}
-      <footer className="share-footer dim">
-        由本地知识库生成的只读分享页 · Markdown 原文与文件永不离开 raw/
-      </footer>
+      <footer className="share-footer dim">本地只读分享 · Markdown 原文与文件永不离开 raw/</footer>
+
+      {zoom && (
+        <div className="lightbox" onClick={() => setZoom(null)}>
+          <img src={zoom.src} alt={zoom.alt} />
+          {zoom.alt && <div className="lightbox-caption">{zoom.alt}</div>}
+        </div>
+      )}
     </article>
   );
 }
-
-export { preprocessWiki };
