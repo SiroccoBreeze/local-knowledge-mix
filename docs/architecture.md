@@ -63,6 +63,19 @@ wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/
   出链/入链 + 同目录相关文档）；`shareIdFrom()` 解析路径进入分享模式；
   分享页内部跳转走 pushState，前进/后退正常。
 
+## V0.4：MCP Read-only Knowledge Access
+
+- **形态**：官方 `mcp` SDK（FastMCP，v1.x，stdio 传输）单进程轻量入口
+  `python -m scripts.mcp`；不要求 Web 服务在跑，直接读写同一个 `data/knowledge.db` 与 `raw/`。
+- **复用而非重实现**：MCP 工具全部调用既有能力 —— `search/query.search`（FTS5+bm25）、
+  新增的 **service 层**（`fetch_doc_row` / `list_documents` / `get_neighbors(include_broken=True)`
+  / `doc_assets` / `knowledge_stats` / `raw_path_for`+`read_raw_bytes` 统一路径守卫）。
+  REST 路由已改为同一 service 层薄调用，行为与响应结构不变（73 个既有测试保驾）。
+- **只读保证**：6 个工具无写路径；无任意文件读取工具；document_id 必校验；
+  正文永远从 raw/ 当前文件读（改文件+重扫 → MCP 立刻读到新内容，有测试）。
+- **测试**：`tests/test_mcp.py` 用 FastMCP 进程内 `list_tools/call_tool` 端到端覆盖 6 工具
+  + 断链/缺失资产/路径穿越/raw 逐字节不变/实时磁盘内容。
+
 ## V0.2：Knowledge Browser
 
 - 前端：React + TS + Vite（`frontend/`，无 UI 框架，marked 渲染 markdown），
@@ -71,3 +84,12 @@ wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/
   outgoing 精确映射到目标文档；图片相对路径在浏览器端解析为
   `GET /api/v1/raw/{rel_path}`（后端白名单 + 防穿越 + 不列目录）。
 - API 仅新增上述一个只读端点；SQLite schema 未改动；raw/ 依然严格只读。
+
+## V0.3.5：Knowledge Reader UI
+
+- 阅读体验向 Obsidian/GitBook 靠拢：⌘K 命令面板搜索、入口式首页（最近访问）、
+  标题去重（frontmatter title 与正文 H1 相同只显示一次）、Document Info 收进
+  More 菜单、4/8/12/16/24/32/48/64 间距标尺与正文 400/标题分级字重。
+- 本阶段仅改前端；backend/API/schema/scanner/raw 零改动。
+
+## Roadmap 现状

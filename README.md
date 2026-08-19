@@ -71,6 +71,67 @@ cd backend && .venv/bin/python -m scripts.serve --host 0.0.0.0
 前端文档页：标题/分类/路径/修改时间 + 正文（标题/表格/代码块/图片/相对链接/
 WikiLink/引用/列表）+ 图片与附件面板 + 出链/入链 + 同目录相关文档 + 一键复制分享地址。
 
+## V0.4：MCP Read-only Knowledge Access
+
+让 Claude Desktop / Claude Code / Cursor 等 MCP 客户端安全地检索并读取本地知识库。
+**只读**：raw/ 唯一可信源、永不修改；SQLite 仍是派生索引；复用既有 search/service/scanner，
+不引入 Embedding / 向量库 / 新存储。
+
+```bash
+cd backend
+.venv/bin/python -m scripts.mcp        # stdio 启动，无需启动 Web 服务
+```
+
+### MCP Client 配置示例（三选一）
+
+将 `<PY>` 换成实际路径：`/home/ub/WorkerSP/local-knowledge-mix/backend/.venv/bin/python`
+
+- **Claude Desktop**（`claude_desktop_config.json`）：
+
+```json
+{
+  "mcpServers": {
+    "local-knowledge": {
+      "command": "<PY>",
+      "args": ["-m", "scripts.mcp"],
+      "cwd": "/home/ub/WorkerSP/local-knowledge-mix/backend"
+    }
+  }
+}
+```
+
+- **Claude Code**（项目根 `/home/ub/WorkerSP/local-knowledge-mix/.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "local-knowledge": {
+      "command": "<PY>",
+      "args": ["-m", "scripts.mcp"],
+      "cwd": "/home/ub/WorkerSP/local-knowledge-mix/backend"
+    }
+  }
+}
+```
+
+也可用命令注册：`claude mcp add local-knowledge --env -c -- <PY> -m scripts.mcp`。
+
+- **Cursor**（项目根 `.cursor/mcp.json`）：同上（command/args/cwd）。
+
+### 6 个只读工具
+
+| 工具 | 作用 |
+|---|---|
+| `search_documents(query, limit?, offset?)` | FTS5 全文检索（复用现有搜索）；返回 doc_id/title/rel_path/score/纯文本 snippet + 行号 |
+| `get_document(document_id)` | 元数据 + **实时从 raw/ 文件读取** 的完整正文（非 DB 副本） |
+| `list_documents(q?, dir?, status?, limit?, offset?)` | 文档列表（同 REST /documents 过滤） |
+| `get_document_links(document_id)` | 进出链；断链标记 `broken`、外链标记 `external` |
+| `get_document_assets(document_id)` | 资产索引元数据（图片/附件） |
+| `get_knowledge_stats()` | 文档/资产/链接/索引/缺失/最近扫描统计 |
+
+安全：document_id 必校验；所有 raw/ 读取经 shared 路径守卫（防穿越/隐藏/绝对路径）；
+无任意文件读取工具；不暴露 DB 文件与环境变量。
+
 ## API
 
 `GET /api/v1/health` · `POST /api/v1/scan` · `GET /api/v1/scan/status`
@@ -99,5 +160,7 @@ cd backend
 
 ## 阶段边界
 
-现在只实现 M0–M3（扫描 / 索引 / 搜索 / API）。无前端、无 AI/LLM、
-无 sources/ wiki/ 管道、无 MCP/Agent/Embedding。
+已实现：M0–M3（扫描/索引/搜索/API）、V0.2（浏览器）、V0.3（Asset 索引 + 分享）、
+V0.3.5（知识库阅读 UI）、V0.4（MCP 只读访问）。
+未实现：AI 写作/总结/分类、Embedding/RAG、sources/wiki 管道、用户系统、
+任何 PostgreSQL/Redis/ES/Milvus/Qdrant/K8s 组件。

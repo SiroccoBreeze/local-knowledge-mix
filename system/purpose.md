@@ -29,5 +29,6 @@
 
 ## 路线图（只做记录，不在本阶段实现）
 
-- P2：`sources/` 外部资料导入；`wiki/` AI 生成区。
-- P3：MCP 服务、Embedding / 向量检索（contentless 按字节偏移定位 chunk）、知识图谱。
+- P2（已部分完成）：`sources/` 外部资料导入；`wiki/` AI 生成区（未开始）。
+- P3（部分完成）：**MCP 只读访问（V0.4 已完成）**、Embedding / 向量检索
+  （contentless 按字节偏移定位 chunk，未开始）、知识图谱（未开始）。
