@@ -1,3 +1,5 @@
+/** 左导航：全部 / 最近 / 收藏 + Collections（items/questions…）。 */
+
 import { useMemo, useState } from "react";
 
 import { type DocMeta } from "../api";
@@ -14,6 +16,7 @@ interface Props {
   active: NavTarget | null;
   onSelect: (t: NavTarget) => void;
   onOpenDoc: (id: number, relPath: string) => void;
+  onOpenSearch: () => void;
 }
 
 interface DirNode {
@@ -44,7 +47,7 @@ function buildHierarchy(docs: DocMeta[]): DirNode {
   return root;
 }
 
-export function Navigation({ docs, favorites, active, onSelect, onOpenDoc }: Props) {
+export function Navigation({ docs, favorites, active, onSelect, onOpenDoc, onOpenSearch }: Props) {
   const root = useMemo(() => buildHierarchy(docs), [docs]);
   const favoritesCount = useMemo(
     () => docs.filter((d) => favorites.has(d.id)).length,
@@ -61,7 +64,7 @@ export function Navigation({ docs, favorites, active, onSelect, onOpenDoc }: Pro
     });
   };
 
-  const render = (node: DirNode, depth: number) => {
+  const render = (node: DirNode) => {
     const entries = [...node.dirs.values()].sort((a, b) =>
       a.name.localeCompare(b.name, "zh-Hans-CN")
     );
@@ -69,12 +72,11 @@ export function Navigation({ docs, favorites, active, onSelect, onOpenDoc }: Pro
       <ul className="nav-tree">
         {entries.map((dir) => {
           const isOpen = open.has(dir.path);
-          const isActiveDir =
-            active?.kind === "dir" && "dir" in active && active.dir === dir.path;
+          const isActiveDir = active?.kind === "dir" && active.dir === dir.path;
           return (
             <li key={dir.path}>
               <button
-                className={`nav-row nav-dir ${isActiveDir ? "active" : ""}`}
+                className={`nav-row ${isActiveDir ? "active" : ""}`}
                 onClick={() => {
                   toggle(dir.path);
                   onSelect({ kind: "dir", dir: dir.path, title: dir.name });
@@ -84,51 +86,56 @@ export function Navigation({ docs, favorites, active, onSelect, onOpenDoc }: Pro
                 {dir.name}
                 <span className="count">{dir.docs.length}</span>
               </button>
-              {isOpen && render(dir, depth + 1)}
+              {isOpen && render(dir)}
+              {isOpen &&
+                dir.docs
+                  .sort((a, b) => a.title.localeCompare(b.title, "zh-Hans-CN"))
+                  .map((doc) => (
+                    <button
+                      key={doc.id}
+                      className="nav-row nav-doc"
+                      onClick={() => onOpenDoc(doc.id, doc.rel_path)}
+                    >
+                      {doc.title || doc.rel_path}
+                    </button>
+                  ))}
             </li>
           );
         })}
-        {node.docs
-          .sort((a, b) => a.title.localeCompare(b.title, "zh-Hans-CN"))
-          .map((doc) => (
-            <li key={doc.id}>
-              <button
-                className="nav-row nav-doc"
-                title={doc.rel_path}
-                onClick={() => onOpenDoc(doc.id, doc.rel_path)}
-              >
-                {doc.title || doc.rel_path}
-              </button>
-            </li>
-          ))}
       </ul>
     );
   };
 
   return (
     <nav className="nav">
+      <div className="nav-brand">📚 知识库</div>
+      <button className="nav-search" onClick={onOpenSearch}>
+        <span>搜索文档…</span>
+        <kbd>⌘K</kbd>
+      </button>
+
       <button
         className={`nav-row ${active?.kind === "all" ? "active" : ""}`}
         onClick={() => onSelect({ kind: "all" })}
       >
-        🗂 全部文档 <span className="count">{docs.length}</span>
+        全部<span className="count">{docs.length}</span>
       </button>
       <button
         className={`nav-row ${active?.kind === "recent" ? "active" : ""}`}
         onClick={() => onSelect({ kind: "recent" })}
       >
-        🕘 最近
+        最近
       </button>
       <button
         className={`nav-row ${active?.kind === "favorites" ? "active" : ""}`}
         onClick={() => onSelect({ kind: "favorites" })}
       >
-        ★ 收藏
+        收藏
         {favoritesCount > 0 && <span className="count">{favoritesCount}</span>}
       </button>
 
       <div className="nav-group-label">Collections</div>
-      {render(root, 0)}
+      {render(root)}
     </nav>
   );
 }

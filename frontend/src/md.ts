@@ -196,6 +196,25 @@ export function renderMarkdown({ content, relPath, linkMap }: DomProps): string 
 /** 阅读主区域点击处理：文档跳转 / 代码复制 / 图片灯箱统一分发。 */
 export type ReaderClick = { said?: "navigate" | "copy" | "zoom"; id?: number; relPath?: string; text?: string; src?: string; alt?: string };
 
+/** 去重：正文开头 H1 与（frontmatter 或 meta 的）标题一致时，只保留一次。 */
+export function dedupeTitle(html: string, title: string | undefined): string {
+  const want = (title ?? "").replace(/\s+/g, "").toLowerCase();
+  if (!want) return html;
+  const m = /^<h1[^>]*>([^<]*)<\/h1>/.exec(html);
+  if (m) {
+    const have = m[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, "")
+      .toLowerCase();
+    if (have === want) {
+      return html.slice(m[0].length);
+    }
+  }
+  return html;
+}
+
 export function handleBodyClick(e: MouseEvent<HTMLDivElement>): ReaderClick | null {
   const el = e.target as HTMLElement;
   const openLink = el.closest("a[data-open]") as HTMLAnchorElement | null;

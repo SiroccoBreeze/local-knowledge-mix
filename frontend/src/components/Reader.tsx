@@ -1,45 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { type DocMeta } from "../api";
-import {
-  AssetPanel,
-  LinkPanels,
-  RelatedDocs,
-  docHeaderOf,
-  useDocData,
-} from "../docview";
-import {
-  handleBodyClick,
-  preprocessWiki,
-  renderMarkdown,
-  stripFrontmatter,
-} from "../md";
+import { AssetPanel, LinkPanels, RelatedDocs, docHeaderOf, useDocData } from "../docview";
+import { dedupeTitle, handleBodyClick, preprocessWiki, renderMarkdown, stripFrontmatter } from "../md";
 
 interface Props {
   docId: number;
-  onClose: () => void;
+  onBack: () => void;
   onOpen: (id: number, relPath: string) => void;
   docs: DocMeta[] | null;
   favorite: boolean;
   onToggleFavorite: (id: number) => void;
-  onShare: (id: number) => void;
 }
 
-export function Reader({ docId, onClose, onOpen, docs, favorite, onToggleFavorite, onShare }: Props) {
+export function Reader({ docId, onBack, onOpen, docs, favorite, onToggleFavorite }: Props) {
   const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(docId);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const relPath = meta?.rel_path ?? "";
   const header = meta ? docHeaderOf(meta) : null;
 
   const html = useMemo(() => {
-    if (content === null) return "";
-    return renderMarkdown({
+    if (content === null || header === null) return "";
+    let h = renderMarkdown({
       content: preprocessWiki(stripFrontmatter(content)),
       relPath,
       linkMap,
     });
-  }, [content, relPath, linkMap]);
+    h = dedupeTitle(h, header.title);
+    return h;
+  }, [content, relPath, linkMap, header]);
 
   useEffect(() => {
     if (!zoom) return;
@@ -67,49 +59,95 @@ export function Reader({ docId, onClose, onOpen, docs, favorite, onToggleFavorit
     }
   };
 
+  const share = () => {
+    const url = `${window.location.origin}/share/${docId}`;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url);
+    }
+    window.location.href = url;
+  };
+
   return (
     <article className="reader">
       {error ? (
-        <div className="list-empty">读取失败:{error}</div>
-      ) : meta === null ? (
+        <div className="list-empty">读取失败：{error}</div>
+      ) : meta === null || header === null ? (
         <div className="list-empty">加载中…</div>
       ) : (
         <>
           <header className="doc-head">
-            <h1 className="doc-title">{header?.title}</h1>
-            <div className="doc-meta">
-              <span className="doc-collection">{header?.category}</span>
-              <span className="separator">·</span>
-              <span className="doc-time">更新于 {header?.modifiedAt}</span>
-            </div>
-            {header && header.tags.length > 0 && (
-              <div className="doc-tags">
-                {header.tags.map((t) => (
-                  <span key={t} className="tag">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="doc-actions">
-              <button className="text-btn" onClick={() => onShare(docId)}>
-                🔗 分享
-              </button>
-              <button
-                className={`text-btn ${favorite ? "fav-on" : ""}`}
-                onClick={() => onToggleFavorite(docId)}
-                title="收藏"
-              >
-                {favorite ? "★ 已收藏" : "☆ 收藏"}
-              </button>
-              <button className="text-btn" onClick={onClose}>
+            <div className="doc-topline">
+              <button className="crumb" onClick={onBack}>
                 ← 返回
               </button>
+              <div className="topline-actions">
+                <button className="text-btn" onClick={share}>
+                  Share
+                </button>
+                <div className="menu-wrap">
+                  <button
+                    className="text-btn"
+                    onClick={() => {
+                      setMoreOpen((v) => !v);
+                      setShowInfo(false);
+                    }}
+                  >
+                    More ···
+                  </button>
+                  {moreOpen && (
+                    <div className="menu" onMouseLeave={() => setMoreOpen(false)}>
+                      <button
+                        onClick={() => {
+                          setShowInfo((v) => !v);
+                          setMoreOpen(false);
+                        }}
+                      >
+                        Document Info
+                      </button>
+                      <button
+                        onClick={() => {
+                          onToggleFavorite(docId);
+                          setMoreOpen(false);
+                        }}
+                      >
+                        {favorite ? "取消收藏" : "收藏"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(relPath);
+                          setMoreOpen(false);
+                        }}
+                      >
+                        复制路径
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <details className="doc-info">
-              <summary>Document Info</summary>
-              <dl>
-                <dt>id</dt>
+
+            <h1 className="doc-title">{header.title}</h1>
+            <div className="doc-meta">
+              <span className="doc-collection">{header.category}</span>
+              <span className="separator">·</span>
+              <span className="doc-time">{header.modifiedAt}</span>
+              {header.tags.length > 0 && (
+                <>
+                  <span className="separator">·</span>
+                  <span className="doc-tags-inline">
+                    {header.tags.slice(0, 4).map((t) => (
+                      <span key={t} className="meta-tag">
+                        #{t}
+                      </span>
+                    ))}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {showInfo && (
+              <dl className="doc-info">
+                <dt>ID</dt>
                 <dd>{meta.id}</dd>
                 <dt>路径</dt>
                 <dd>{meta.rel_path}</dd>
@@ -124,7 +162,7 @@ export function Reader({ docId, onClose, onOpen, docs, favorite, onToggleFavorit
                 <dt>字数</dt>
                 <dd>{meta.word_count}</dd>
               </dl>
-            </details>
+            )}
           </header>
 
           <div
