@@ -96,3 +96,15 @@ def test_junk_terms_are_scrubbed_not_fatal(corpus, engine):
     # 括号/星号/引号等特殊字符已被清洗，不应该让查询 500
     assert search(engine, 'sqlite (**))').total == 2
     assert search(engine, 'a"b').total == 0  # 引号被清洗，剩两字符词，无标题命中
+
+
+def test_pool_lifecycle_no_timeout(corpus, engine):
+    """连续 60 次搜索（smart+keyword 交替）不得 TimeoutError；连接及时归还（不依赖 GC）。"""
+    from app.search.query import search as lib_search
+
+    run_scan(engine, full=True)
+    for _ in range(30):
+        assert lib_search(engine, "sqlite", mode="smart").total == 2
+        assert lib_search(engine, "sqlite", mode="keyword").total == 2
+    # 池状态：所有连接均已归还
+    assert "Checked out connections: 0" in engine.pool.status()

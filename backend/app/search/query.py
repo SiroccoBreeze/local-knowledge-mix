@@ -207,23 +207,25 @@ def search(
         f" WHERE {where_sql}"
     )
 
-    total = int(engine.connect().execute(text(f"SELECT count(*) {base}"), params).scalar())
+    # 连接生命周期显式管理：不得依赖 GC 归还（连续检索会在 Pool 溢出时 30s Timeout）。
+    with engine.connect() as conn:
+        total = int(conn.execute(text(f"SELECT count(*) {base}"), params).scalar())
 
     # 候选召回：与 keyword 完全一致的 FTS5 结果（bm25 ASC = 原始相关度），
     # 但先把候选取够（smart 需要在候选内重排后再分页）。
     candidate_limit = max(CANDIDATE_MIN, offset + limit + CANDIDATE_MARGIN)
-    rows = (
-        engine.connect()
-        .execute(
-            text(
-                f"SELECT d.*, bm25(docs_fts, 1.5, 1.0, 1.2) AS bm25 {base}"
-                f" ORDER BY bm25 ASC, d.id ASC LIMIT :cl"
-            ),
-            {**params, "cl": candidate_limit},
+    with engine.connect() as conn:
+        rows = (
+            conn.execute(
+                text(
+                    f"SELECT d.*, bm25(docs_fts, 1.5, 1.0, 1.2) AS bm25 {base}"
+                    f" ORDER BY bm25 ASC, d.id ASC LIMIT :cl"
+                ),
+                {**params, "cl": candidate_limit},
+            )
+            .mappings()
+            .all()
         )
-        .mappings()
-        .all()
-    )
     if not rows:
         return SearchResult(query=q, total=0, hits=[], limit=limit, offset=offset)
 
