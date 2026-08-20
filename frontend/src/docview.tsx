@@ -1,18 +1,19 @@
 /** 文档详情数据获取 + 共享面板（Reader 与 ShareView 复用）。 */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   type AssetMeta,
   type DocMeta,
   type Neighbor,
   categoryOf,
-  dirOf,
   getDoc,
   getDocContent,
   getNeighbors,
+  getRelatedDocuments,
   listAssets,
   rawUrl,
+  type RelatedItem,
 } from "./api";
 
 export interface LinkTarget {
@@ -185,39 +186,107 @@ export function LinkPanels({ outgoing, incoming, onOpen }: LinkPanelsProps) {
 }
 
 export function RelatedDocs({
-  docs,
-  currentRel,
+  items,
+  loading,
+  error,
   onOpen,
 }: {
-  docs: DocMeta[] | null;
-  currentRel: string;
+  items: RelatedItem[];
+  loading: boolean;
+  error: boolean;
   onOpen: (id: number, relPath: string) => void;
 }) {
-  const related = useMemo(() => {
-    if (!docs) return [];
-    const dir = dirOf(currentRel);
-    return docs
-      .filter((d) => d.rel_path !== currentRel && dirOf(d.rel_path) === dir)
-      .sort((a, b) => b.mtime_ns - a.mtime_ns)
-      .slice(0, 12);
-  }, [docs, currentRel]);
-
-  if (related.length === 0) return null;
+  if (loading) {
+    return (
+      <section className="panel">
+        <h3>相关文档</h3>
+        <p className="dim">加载相关文档…</p>
+      </section>
+    );
+  }
+  if (error) {
+    return (
+      <section className="panel">
+        <h3>相关文档</h3>
+        <p className="dim">相关文档暂时不可用</p>
+      </section>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <section className="panel">
+        <h3>相关文档</h3>
+        <p className="dim">暂未找到足够相关的文档</p>
+      </section>
+    );
+  }
   return (
     <section className="panel">
-      <h3>相关文档（同目录 · {related.length}）</h3>
-      <ul className="link-chips">
-        {related.map((d) => (
-          <li key={d.id}>
-            <button className="chip" onClick={() => onOpen(d.id, d.rel_path)}>
-              {d.title || d.rel_path}
-            </button>
-          </li>
+      <h3>相关文档（{items.length}）</h3>
+      <div className="related-list">
+        {items.map((it) => (
+          <button
+            key={it.doc_id}
+            className="related-row"
+            onClick={() => onOpen(it.doc_id, it.rel_path)}
+          >
+            <span className="related-title">{it.title}</span>
+            <span className="related-meta">
+              {it.rel_path} · 相关度 {it.score.toFixed(2)}
+            </span>
+            {it.reasons && it.reasons.length > 0 && (
+              <span className="related-why">
+                {it.reasons.slice(0, 2).map((r) => RELATED_REASON_LABELS[r] ?? r).join(" · ")}
+              </span>
+            )}
+          </button>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
+
+export function useRelatedDocuments(docId: number): {
+  items: RelatedItem[];
+  loading: boolean;
+  error: boolean;
+} {
+  const [items, setItems] = useState<RelatedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setItems([]);
+    setLoading(true);
+    setError(false);
+    getRelatedDocuments(docId)
+      .then((r) => {
+        if (!alive) return;
+        setItems(r.items);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setLoading(false);
+        setError(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [docId]);
+
+  return { items, loading, error };
+}
+
+const RELATED_REASON_LABELS: Record<string, string> = {
+  linked: "有链接关系",
+  same_directory: "同目录",
+  shared_tag: "共同标签",
+  title_similarity: "标题相似",
+  heading_similarity: "章节相似",
+  term_similarity: "内容相关",
+};
 
 export interface DocHeaderInfo {
   relPath: string;

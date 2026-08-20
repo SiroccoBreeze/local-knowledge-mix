@@ -121,6 +121,23 @@ export function getNeighbors(id: number): Promise<Neighbors> {
   return readJson(`${BASE}/documents/${id}/neighbors`);
 }
 
+export interface RelatedItem {
+  doc_id: number;
+  title: string;
+  rel_path: string;
+  score: number;
+  reasons: string[];
+}
+
+export interface RelatedResponse {
+  document_id: number;
+  items: RelatedItem[];
+}
+
+export function getRelatedDocuments(docId: number, limit = 10): Promise<RelatedResponse> {
+  return readJson(`${BASE}/documents/${docId}/related?limit=${limit}`);
+}
+
 /** 图片等媒体文件的安全访问（后端只允许 raw/ 内白名单类型）。 */
 export function rawUrl(relPath: string): string {
   return `${BASE}/raw/${relPath}`;

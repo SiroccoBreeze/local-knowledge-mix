@@ -183,7 +183,6 @@ export default function App() {
           <Reader
             key={view.id}
             docId={view.id}
-            docs={docs}
             favorite={favorites.has(view.id)}
             onToggleFavorite={toggleFavorite}
             onBack={() => setView({ kind: "home" })}

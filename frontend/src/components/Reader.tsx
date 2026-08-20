@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { type DocMeta } from "../api";
-import { AssetPanel, LinkPanels, RelatedDocs, docHeaderOf, useDocData } from "../docview";
+import { AssetPanel, LinkPanels, RelatedDocs, docHeaderOf, useDocData, useRelatedDocuments } from "../docview";
 import { dedupeTitle, handleBodyClick, preprocessWiki, renderMarkdown, stripFrontmatter } from "../md";
 
 interface Props {
   docId: number;
   onBack: () => void;
   onOpen: (id: number, relPath: string) => void;
-  docs: DocMeta[] | null;
   favorite: boolean;
   onToggleFavorite: (id: number) => void;
 }
 
-export function Reader({ docId, onBack, onOpen, docs, favorite, onToggleFavorite }: Props) {
+export function Reader({ docId, onBack, onOpen, favorite, onToggleFavorite }: Props) {
   const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(docId);
+  const related = useRelatedDocuments(docId);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
@@ -176,7 +175,12 @@ export function Reader({ docId, onBack, onOpen, docs, favorite, onToggleFavorite
           {(outgoing.length > 0 || incoming.length > 0) && (
             <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={onOpen} />
           )}
-          <RelatedDocs docs={docs} currentRel={relPath} onOpen={onOpen} />
+          <RelatedDocs
+            items={related.items}
+            loading={related.loading}
+            error={related.error}
+            onOpen={onOpen}
+          />
         </>
       )}
 
