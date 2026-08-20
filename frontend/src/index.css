@@ -64,31 +64,32 @@ mark {
   border-bottom: 1px solid;
   @apply border-zinc-200 dark:border-zinc-800;
 }
-.prose-md img.md-img {
-  @apply my-4 max-w-full rounded-lg cursor-zoom-in;
+.prose-md img.md-img,
+.prose-md img {
+  @apply my-2 block max-w-[280px] max-h-[180px] rounded-lg border border-slate-200 object-cover cursor-zoom-in transition-shadow hover:shadow-md dark:border-slate-700;
 }
 
 /* 代码块（深底、现代字体、复制按钮） */
 .code-wrap {
-  @apply my-5 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900;
+  @apply my-5 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900;
 }
 .code-bar {
-  @apply flex items-center justify-between border-b border-zinc-200/80 bg-zinc-200/50 px-4 py-1.5 dark:border-zinc-800 dark:bg-zinc-900;
+  @apply flex items-center justify-between border-b border-slate-200 bg-slate-200/60 px-4 py-1.5 dark:border-slate-700 dark:bg-slate-900;
 }
 .code-lang {
-  @apply font-mono text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500;
+  @apply font-mono text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400;
 }
 .code-copy {
-  @apply text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200;
+  @apply text-xs text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
 }
 .code-wrap pre {
-  @apply overflow-x-auto px-4 py-3;
+  @apply m-0 overflow-x-auto px-4 py-3;
 }
 .code-wrap pre code {
-  @apply font-mono text-[13.5px] leading-relaxed text-zinc-800 dark:text-zinc-200;
+  @apply block font-mono text-[13.5px] leading-relaxed text-slate-800 dark:text-slate-100;
 }
 .prose-md :not(pre) > code {
-  @apply rounded bg-zinc-200/70 px-1.5 py-0.5 font-mono text-[13px] dark:bg-zinc-800;
+  @apply rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-[13px] text-slate-800 dark:bg-slate-800 dark:text-slate-100;
 }
 .prose-md blockquote {
   @apply border-l-[3px] border-zinc-300 font-normal italic text-zinc-500 dark:border-zinc-700 dark:text-zinc-400;

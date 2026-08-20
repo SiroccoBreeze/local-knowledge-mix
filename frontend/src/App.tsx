@@ -9,7 +9,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { DocFeed, docsToFeed } from "./components/DocFeed";
 import { FilterPills, type FeedKind } from "./components/FilterPills";
 import { Navbar } from "./components/Navbar";
-import { ReadingDrawer } from "./components/ReadingDrawer";
+import { ReaderContent } from "./components/ReaderContent";
 import { ShareView } from "./components/ShareView";
 import { Sidebar } from "./components/Sidebar";
 import { ToastProvider, useToast } from "./components/Toast";
@@ -49,9 +49,9 @@ function Shell() {
   const [favorites, setFavorites] = useState<Set<number>>(() => new Set(loadJSON<number[]>(FAV_KEY, [])));
   const [visits, setVisits] = useState<{ id: number; relPath: string; ts: number }[]>(() => loadJSON(RECENT_KEY, []));
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [drawer, setDrawer] = useState<{ id: number; relPath: string } | null>(null);
+  const [activeDoc, setActiveDoc] = useState<{ id: number; relPath: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem(THEME_KEY) as "dark" | "light") ?? "dark");
+  const [theme, setTheme] = useState<"dark" | "light">(() => (localStorage.getItem(THEME_KEY) as "dark" | "light") ?? "light");
   const [shareId, setShareId] = useState<number | null>(() => shareIdFrom(window.location.pathname));
   const shareIdRef = useRef(shareId);
 
@@ -78,7 +78,7 @@ function Shell() {
     const onPop = () => {
       const sid = shareIdFrom(window.location.pathname);
       if (sid === null && shareIdRef.current !== null) {
-        setDrawer(null);
+        setActiveDoc(null);
       }
       setShareId(sid);
     };
@@ -100,7 +100,7 @@ function Shell() {
   }, []);
 
   const openDoc = (id: number, relPath: string) => {
-    setDrawer({ id, relPath });
+    setActiveDoc({ id, relPath });
     setVisits((prev) => {
       const next = [{ id, relPath, ts: Date.now() }, ...prev.filter((v) => v.id !== id)].slice(0, 12);
       try {
@@ -150,11 +150,7 @@ function Shell() {
 
 
   if (shareId !== null) {
-    return (
-      <div className="dark">
-        <ShareView docId={shareId} />
-      </div>
-    );
+    return <ShareView docId={shareId} />;
   }
 
   const items = useMemo(() => {
@@ -229,6 +225,7 @@ function Shell() {
           onSort={setSort}
         />
 
+        {!activeDoc && (
         <main className="mx-auto w-full max-w-[960px] flex-1 overflow-y-auto px-4 py-5">
           {kind.kind === "all" && (
             <div className="mb-5 flex items-baseline justify-between">
@@ -258,19 +255,34 @@ function Shell() {
             />
           )}
         </main>
-      </div>
+        )}
 
-      {drawer && (
-        <ReadingDrawer
-          docId={drawer.id}
-          favorite={favorites.has(drawer.id)}
-          onToggleFavorite={togglePin}
-          onOpen={openDoc}
-          onClose={() => setDrawer(null)}
-        />
+      {activeDoc && (
+        <div className="flex min-w-0 flex-1 overflow-hidden border-t border-zinc-200/60 dark:border-zinc-800">
+          <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-zinc-200/70 bg-white px-2 py-3 dark:border-zinc-800 dark:bg-zinc-900 md:block">
+            <DocFeed
+              title={kind.kind === "all" ? undefined : feedTitle}
+              items={items}
+              empty="没有文档。"
+              onOpen={openDoc}
+              onCopy={copyBody}
+              onTogglePin={togglePin}
+            />
+          </aside>
+          <section key={activeDoc.id} className="min-w-0 flex-1 overflow-y-auto">
+            <ReaderContent
+              docId={activeDoc.id}
+              favorite={favorites.has(activeDoc.id)}
+              onToggleFavorite={togglePin}
+              onOpen={openDoc}
+              onBack={() => setActiveDoc(null)}
+            />
+          </section>
+        </div>
       )}
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenDoc={openDoc} />
+      </div>
     </div>
   );
 }
