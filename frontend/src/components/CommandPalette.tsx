@@ -104,6 +104,18 @@ export function CommandPalette({ open, onClose, onOpenDoc }: Props) {
                     dangerouslySetInnerHTML={{ __html: hit.snippets[0].text }}
                   />
                 )}
+                {hit.matched_terms.length > 0 && (
+                  <span className="palette-stat">
+                    <span className="palette-score">相关度 {hit.score.toFixed(2)}</span>
+                    <span className="palette-terms">
+                      {hit.matched_terms.slice(0, 5).map((t) => (
+                        <i key={t} className="palette-term">
+                          {t}
+                        </i>
+                      ))}
+                    </span>
+                  </span>
+                )}
               </button>
             ))
           )}

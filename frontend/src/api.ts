@@ -30,6 +30,7 @@ export interface Hit {
   doc: DocMeta;
   score: number;
   snippets: Snippet[];
+  matched_terms: string[];
 }
 
 export interface SearchResult {
