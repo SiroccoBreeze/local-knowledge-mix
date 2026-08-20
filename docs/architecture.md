@@ -116,3 +116,13 @@ wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/
    不改 raw/、不加 DB 字段（若实现）。
 6. **MCP**：6 个既有工具不动；新增 `find_related_documents`；`search_documents` 增加可选
    `search_mode`（Phase 8）。
+
+## V0.6：检索层（Phase 11 已落地）
+
+- **Retrieval Contract**（`app/retrieval/contract.py`）：search 与 related 的出口
+  归一为同一结构 `RetrievalResult/RetrievalItem/RetrievalReason/RetrievalContext`。
+  只做结果表达与安全裁剪（无绝对路径/raw 根/SQLite 路径/SQL/内部字段），
+  算法仍由 search/service 提供，零复制。
+- score 语义：smart 越大越相关；keyword 原始 bm25 仅作兼容模式透传，不强行转换。
+- `to_context()` 产出 Context Pack 切片（纯文本 snippet + knowledge_status），
+  为 Phase 12 Context Builder / retrieve_context MCP 预留输入形状。
