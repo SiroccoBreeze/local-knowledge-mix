@@ -69,6 +69,7 @@ class SearchHit(BaseModel):
     doc: DocumentMeta
     score: float
     snippets: list[Snippet]
+    matched_terms: list[str] = []
 
 
 class SearchResponse(BaseModel):

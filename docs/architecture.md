@@ -93,3 +93,24 @@ wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/
 - 本阶段仅改前端；backend/API/schema/scanner/raw 零改动。
 
 ## Roadmap 现状
+## V0.5：检索层升级（Phase 4/5 已落地部分）
+
+设计目标："FTS5 候选召回 + 轻量重排"，不是全库精确重排，不引入向量/外部服务。
+
+**评审修正后的一致模型：**
+
+1. **BM25 方向**：FTS5 `bm25()` 值越小越相关。禁止 `bm25 + boost` 后 ASC。
+   smart 模式改为：候选内 **min-max 归一化** `norm = (bm25_max - raw)/(bm25_max - bm25_min)`，
+   得到「越大越相关」的 0..1 基础分，再叠加可解释加分，最终 **DESC 排序**。
+   REST/MCP 输出的 `score` 统一为「越大越相关」。
+2. **候选集规模**：`candidate_limit = max(100, offset + limit + 50)`；
+   smart 在候选内重排后本地切片分页，`total` 仍为 FTS 命中计数。
+3. **权重是实验参数**：`RANK_WEIGHTS`（title 3.0 / phrase 2.0 / heading 1.5 / tag 1.5 /
+   path 1.0 / body 0.4）集中在 `search/query.py` 一个常量表，可随真实数据调整，
+   不算架构规则。related 权重同样走 `RELATED_WEIGHTS`（Phase 6）。
+4. **search_mode**：`keyword`=legacy 完全一致；`smart`（默认）召回与 keyword 严格一致，
+   只做 rerank / matched_terms / 更好 snippet。
+5. **知识状态**：`frontmatter.resolved==true→"resolved"`、`==false→"unresolved"`、其余 null；
+   不改 raw/、不加 DB 字段（若实现）。
+6. **MCP**：6 个既有工具不动；新增 `find_related_documents`；`search_documents` 增加可选
+   `search_mode`（Phase 8）。
