@@ -1,10 +1,9 @@
-/** /share/{id} — 本地只读分享页（导航/搜索之外：仅文档 + 资产 + 链接）。 */
+/** /share/{id} —— 只读分享页（新视觉：顶栏 + 正文流）。 */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { BookOpen } from "lucide-react";
 
-import { docHeaderOf, useDocData } from "../docview";
-import { AssetPanel, LinkPanels } from "../docview";
-import { handleBodyClick, preprocessWiki, renderMarkdown, stripFrontmatter } from "../md";
+import { ReaderContent } from "./ReaderContent";
 
 interface Props {
   docId: number;
@@ -12,12 +11,6 @@ interface Props {
 
 export function ShareView({ docId }: Props) {
   const [cur, setCur] = useState(docId);
-  const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(cur);
-  const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
-  const relPath = meta?.rel_path ?? "";
-  const header = meta ? docHeaderOf(meta) : null;
-
-  // 浏览器前进/后退（popstate 更新 docId prop）时保持内部状态同步
   useEffect(() => setCur(docId), [docId]);
 
   const navigate = (id: number) => {
@@ -29,90 +22,26 @@ export function ShareView({ docId }: Props) {
     }
   };
 
-  useEffect(() => {
-    if (!zoom) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setZoom(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoom]);
-
-  const html = useMemo(() => {
-    if (content === null) return "";
-    return renderMarkdown({
-      content: preprocessWiki(stripFrontmatter(content)),
-      relPath,
-      linkMap,
-    });
-  }, [content, relPath, linkMap]);
-
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const hit = handleBodyClick(e);
-    if (!hit) return;
-    if (hit.said === "navigate" && hit.id !== undefined) navigate(hit.id);
-    else if (hit.said === "zoom" && hit.src) setZoom({ src: hit.src, alt: hit.alt ?? "" });
-    else if (hit.said === "copy") {
-      navigator.clipboard?.writeText(hit.text ?? "").then(() => {
-        const btn = (e.target as HTMLElement).closest("button.code-copy");
-        if (btn) {
-          const prev = btn.textContent;
-          btn.textContent = "已复制 ✓";
-          setTimeout(() => (btn.textContent = prev), 1200);
-        }
-      }, () => undefined);
-    }
-  };
-
   return (
-    <article className="reader">
-      <header className="doc-head">
-        <div className="doc-meta share-note">
-          <span className="share-badge">🔗 分享页</span>
-          <a className="text-btn" href="/">
-            回到知识库 →
-          </a>
-        </div>
-        <h1 className="doc-title">{header?.title}</h1>
-        <div className="doc-meta">
-          <span className="doc-collection">{header?.category}</span>
-          <span className="separator">·</span>
-          <span className="doc-time">更新于 {header?.modifiedAt}</span>
-        </div>
-        {header && header.tags.length > 0 && (
-          <div className="doc-tags">
-            {header.tags.map((t) => (
-              <span key={t} className="tag">
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
+    <div className="flex h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-zinc-200/70 bg-white/80 px-4 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
+        <span className="flex items-center gap-2 text-[13px] font-semibold text-zinc-900 dark:text-zinc-50">
+          <BookOpen className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
+          知识库 · 只读分享
+        </span>
+        <a href="/" className="text-[13px] text-zinc-500 transition-colors hover:text-zinc-900 dark:hover:text-zinc-100">
+          回到知识库 →
+        </a>
       </header>
-
-      {error ? (
-        <div className="list-empty">文档不存在或不可用：{error}</div>
-      ) : content === null ? (
-        <div className="list-empty">加载中…</div>
-      ) : (
-        <>
-          <div
-            className="markdown-body"
-            dangerouslySetInnerHTML={{ __html: html }}
-            onClick={handleClick}
-          />
-          {assets.length > 0 && <AssetPanel assets={assets} />}
-          {(outgoing.length > 0 || incoming.length > 0) && (
-            <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={(id) => navigate(id)} />
-          )}
-        </>
-      )}
-      <footer className="share-footer dim">本地只读分享 · Markdown 原文与文件永不离开 raw/</footer>
-
-      {zoom && (
-        <div className="lightbox" onClick={() => setZoom(null)}>
-          <img src={zoom.src} alt={zoom.alt} />
-          {zoom.alt && <div className="lightbox-caption">{zoom.alt}</div>}
-        </div>
-      )}
-    </article>
+      <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto">
+        <ReaderContent
+          docId={cur}
+          favorite={false}
+          onToggleFavorite={() => undefined}
+          onOpen={(id) => navigate(id)}
+          compact
+        />
+      </div>
+    </div>
   );
 }

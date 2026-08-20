@@ -1,0 +1,133 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, "SFMono-Regular",
+    Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply bg-zinc-50 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-200;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 柔和选中 */
+::selection {
+  @apply bg-amber-200/70 dark:bg-amber-500/25;
+}
+
+/* 纤细滚动条 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  @apply bg-zinc-300 dark:bg-zinc-700;
+}
+*::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-400 dark:bg-zinc-600;
+}
+
+/* 命中高亮（snippet 与 prose 共用） */
+mark {
+  @apply rounded px-0.5 font-medium bg-amber-500/20 text-amber-700 dark:text-amber-300;
+}
+
+/* ---------- Markdown prose 细节 ---------- */
+.prose-md {
+  @apply prose prose-zinc dark:prose-invert max-w-none prose-p:leading-relaxed
+    prose-headings:font-semibold prose-headings:tracking-tight
+    prose-a:no-underline prose-a:border-b prose-a:border-zinc-300/70
+    dark:prose-a:border-zinc-700/70 hover:prose-a:border-zinc-400;
+}
+.prose-md h1 {
+  font-size: 1.75em;
+  line-height: 1.25;
+}
+.prose-md h2 {
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid;
+  @apply border-zinc-200 dark:border-zinc-800;
+}
+.prose-md img.md-img {
+  @apply my-4 max-w-full rounded-lg cursor-zoom-in;
+}
+
+/* 代码块（深底、现代字体、复制按钮） */
+.code-wrap {
+  @apply my-5 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900;
+}
+.code-bar {
+  @apply flex items-center justify-between border-b border-zinc-200/80 bg-zinc-200/50 px-4 py-1.5 dark:border-zinc-800 dark:bg-zinc-900;
+}
+.code-lang {
+  @apply font-mono text-[11px] uppercase tracking-wide text-zinc-400 dark:text-zinc-500;
+}
+.code-copy {
+  @apply text-xs text-zinc-500 transition-colors hover:text-zinc-800 dark:hover:text-zinc-200;
+}
+.code-wrap pre {
+  @apply overflow-x-auto px-4 py-3;
+}
+.code-wrap pre code {
+  @apply font-mono text-[13.5px] leading-relaxed text-zinc-800 dark:text-zinc-200;
+}
+.prose-md :not(pre) > code {
+  @apply rounded bg-zinc-200/70 px-1.5 py-0.5 font-mono text-[13px] dark:bg-zinc-800;
+}
+.prose-md blockquote {
+  @apply border-l-[3px] border-zinc-300 font-normal italic text-zinc-500 dark:border-zinc-700 dark:text-zinc-400;
+}
+.prose-md a.dangling {
+  @apply border-dotted text-amber-600 dark:text-amber-400;
+}
+
+/* 图片灯箱 */
+.lightbox {
+  @apply fixed inset-0 z-[120] flex flex-col items-center justify-center gap-3 bg-zinc-950/85 cursor-zoom-out;
+}
+.lightbox img {
+  @apply max-h-[86vh] max-w-[92vw] rounded-xl shadow-2xl;
+}
+.lightbox-caption {
+  @apply text-sm text-zinc-300;
+}
+
+/* 抽屉滑入动画 */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-panel {
+  animation: drawer-in 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 0.18s ease-out;
+}

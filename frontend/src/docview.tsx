@@ -98,44 +98,47 @@ export function AssetPanel({ assets }: { assets: AssetMeta[] }) {
   const images = assets.filter((a) => a.mime_type.startsWith("image/") && a.status === "indexed");
   const files = assets.filter((a) => !a.mime_type.startsWith("image/"));
 
+  const label = (t: string) => (
+    <h3 className="mb-3 mt-7 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+      {t}
+    </h3>
+  );
+
   return (
-    <section className="panel">
-      <h3>图片（{images.length}）</h3>
+    <section className="mt-10 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
+      {label(`图片（${images.length}）`)}
       {images.length === 0 ? (
-        <p className="dim">无</p>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">无</p>
       ) : (
-        <div className="asset-images">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {images.map((a) => (
             <a key={a.id} href={rawUrl(a.relative_path)} target="_blank" rel="noreferrer" title={a.relative_path}>
-              <img src={rawUrl(a.relative_path)} alt={a.filename} loading="lazy" />
+              <img
+                src={rawUrl(a.relative_path)}
+                alt={a.filename}
+                loading="lazy"
+                className="aspect-square w-full rounded-lg border border-zinc-200 object-cover transition-transform duration-200 hover:scale-[1.02] dark:border-zinc-800"
+              />
             </a>
           ))}
         </div>
       )}
-      <h3>附件（{files.length + assets.filter((a) => a.status !== "indexed").length}）</h3>
+      {label("附件")}
       {files.length === 0 ? (
-        <p className="dim">无</p>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">无</p>
       ) : (
-        <ul className="asset-files">
+        <ul className="space-y-1 text-sm">
           {files.map((a) => (
-            <li key={a.id}>
-              <a href={rawUrl(a.relative_path)} target="_blank" rel="noreferrer">
+            <li key={a.id} className="truncate">
+              <a href={rawUrl(a.relative_path)} target="_blank" rel="noreferrer" className="text-zinc-700 hover:underline dark:text-zinc-200">
                 📎 {a.filename}
               </a>
-              <span className="dim">
-                {" "}
-                · {a.extension} · {(a.size / 1024).toFixed(1)} KB ·{" "}
-                {a.status === "indexed" ? a.sha256.slice(0, 8) : "文件缺失"}
+              <span className="ml-2 text-xs text-zinc-400">
+                {a.extension} · {(a.size / 1024).toFixed(1)} KB
+                {a.status !== "indexed" ? " · 缺失" : ""}
               </span>
             </li>
           ))}
-          {assets
-            .filter((a) => a.status !== "indexed")
-            .map((a) => (
-              <li key={`missing-${a.id}`} className="dim">
-                ⚠ 缺失：{a.filename}（{a.relative_path}）
-              </li>
-            ))}
         </ul>
       )}
     </section>
@@ -149,38 +152,34 @@ interface LinkPanelsProps {
 }
 
 export function LinkPanels({ outgoing, incoming, onOpen }: LinkPanelsProps) {
+  const section = (title: string, rows: Neighbor[]) => (
+    <>
+      <h3 className="mb-3 mt-7 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+        {title}（{rows.length}）
+      </h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">无</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {rows.map((nb, i) => (
+            <button
+              key={i}
+              onClick={() => onOpen(nb.doc_id, nb.rel_path)}
+              className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-[13px] text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-500"
+            >
+              {nb.title || nb.rel_path}
+              <span className="ml-1 text-[11px] text-zinc-400">{nb.kind}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <section className="panel">
-      <h3>出链（{outgoing.length}）</h3>
-      {outgoing.length === 0 ? (
-        <p className="dim">无</p>
-      ) : (
-        <ul className="link-chips">
-          {outgoing.map((nb, i) => (
-            <li key={i}>
-              <button className="chip" onClick={() => onOpen(nb.doc_id, nb.rel_path)}>
-                {nb.title || nb.rel_path}
-                <span className="chip-kind">{nb.kind}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <h3>入链（{incoming.length}）</h3>
-      {incoming.length === 0 ? (
-        <p className="dim">无</p>
-      ) : (
-        <ul className="link-chips">
-          {incoming.map((nb, i) => (
-            <li key={i}>
-              <button className="chip" onClick={() => onOpen(nb.doc_id, nb.rel_path)}>
-                {nb.title || nb.rel_path}
-                <span className="chip-kind">{nb.kind}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+    <section className="mt-10 border-t border-zinc-200/80 pt-2 dark:border-zinc-800">
+      {section("出链", outgoing)}
+      {section("入链", incoming)}
     </section>
   );
 }
@@ -198,44 +197,54 @@ export function RelatedDocs({
 }) {
   if (loading) {
     return (
-      <section className="panel">
-        <h3>相关文档</h3>
-        <p className="dim">加载相关文档…</p>
+      <section className="mt-10 border-t border-zinc-200/80 pt-4 dark:border-zinc-800">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          相关文档
+        </h3>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">加载相关文档…</p>
       </section>
     );
   }
   if (error) {
     return (
-      <section className="panel">
-        <h3>相关文档</h3>
-        <p className="dim">相关文档暂时不可用</p>
+      <section className="mt-10 border-t border-zinc-200/80 pt-4 dark:border-zinc-800">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          相关文档
+        </h3>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">相关文档暂时不可用</p>
       </section>
     );
   }
   if (items.length === 0) {
     return (
-      <section className="panel">
-        <h3>相关文档</h3>
-        <p className="dim">暂未找到足够相关的文档</p>
+      <section className="mt-10 border-t border-zinc-200/80 pt-4 dark:border-zinc-800">
+        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+          相关文档
+        </h3>
+        <p className="text-sm text-zinc-400 dark:text-zinc-500">暂未找到足够相关的文档</p>
       </section>
     );
   }
   return (
-    <section className="panel">
-      <h3>相关文档（{items.length}）</h3>
-      <div className="related-list">
+    <section className="mt-10 border-t border-zinc-200/80 pt-4 dark:border-zinc-800">
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+        相关文档（{items.length}）
+      </h3>
+      <div className="space-y-1">
         {items.map((it) => (
           <button
             key={it.doc_id}
-            className="related-row"
             onClick={() => onOpen(it.doc_id, it.rel_path)}
+            className="block w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
           >
-            <span className="related-title">{it.title}</span>
-            <span className="related-meta">
+            <span className="block text-[14.5px] font-medium text-zinc-800 dark:text-zinc-100">
+              {it.title}
+            </span>
+            <span className="mt-0.5 block truncate font-mono text-[12px] text-zinc-400 dark:text-zinc-500">
               {it.rel_path} · 相关度 {it.score.toFixed(2)}
             </span>
             {it.reasons && it.reasons.length > 0 && (
-              <span className="related-why">
+              <span className="mt-0.5 block text-[12px] text-amber-600 dark:text-amber-400">
                 {it.reasons.slice(0, 2).map((r) => RELATED_REASON_LABELS[r] ?? r).join(" · ")}
               </span>
             )}
