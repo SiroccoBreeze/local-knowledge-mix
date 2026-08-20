@@ -4,7 +4,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, ExternalLink, Share2, Star } from "lucide-react";
 
-import { AssetPanel, docHeaderOf, useDocData } from "../docview";
+import {
+  AssetPanel,
+  LinkPanels,
+  RelatedDocs,
+  docHeaderOf,
+  useDocData,
+  useRelatedDocuments,
+} from "../docview";
 import { dedupeTitle, handleBodyClick, preprocessWiki, renderMarkdown, stripFrontmatter } from "../md";
 import { useToast } from "./Toast";
 
@@ -18,7 +25,8 @@ interface Props {
 }
 
 export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBack, compact }: Props) {
-  const { meta, content, linkMap, assets, error } = useDocData(docId);
+  const { meta, content, linkMap, assets, incoming, outgoing, error } = useDocData(docId);
+  const related = useRelatedDocuments(docId);
   const toast = useToast();
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null);
   const relPath = meta?.rel_path ?? "";
@@ -130,6 +138,10 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
             onClick={handleClick}
           />
           {assets.length > 0 && <AssetPanel assets={assets} />}
+          {(outgoing.length > 0 || incoming.length > 0) && (
+            <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={onOpen} />
+          )}
+          <RelatedDocs items={related.items} loading={related.loading} error={related.error} onOpen={onOpen} />
         </div>
       )}
 
