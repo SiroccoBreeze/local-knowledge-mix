@@ -113,6 +113,19 @@ class AssetMeta(BaseModel):
     status: str
 
 
+class RelatedItem(BaseModel):
+    doc_id: int
+    title: str
+    rel_path: str
+    score: float
+    reasons: list[str]
+
+
+class RelatedResponse(BaseModel):
+    document_id: int
+    items: list[RelatedItem]
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -154,6 +167,8 @@ __all__ = [
     "Neighbor",
     "NeighborsResponse",
     "AssetMeta",
+    "RelatedItem",
+    "RelatedResponse",
     "HealthResponse",
     "ErrorBody",
     "ErrorResponse",

@@ -12,12 +12,15 @@ from app.api.models import (
     ErrorBody,
     Neighbor,
     NeighborsResponse,
+    RelatedItem,
+    RelatedResponse,
     doc_row_to_meta,
 )
-from app.service.docs import fetch_doc_row
+from app.service.docs import DocNotFoundError, fetch_doc_row
 from app.service.docs import list_documents as svc_list_documents
 from app.service.files import read_raw_bytes
 from app.service.links import get_neighbors
+from app.service.related import find_related
 
 router = APIRouter(tags=["documents"])
 
@@ -87,6 +90,25 @@ def neighbors_endpoint(doc_id: int, engine: Engine = Depends(get_engine_dep)) ->
     return NeighborsResponse(
         incoming=[Neighbor(**r) for r in nb["incoming"]],
         outgoing=[Neighbor(**r) for r in nb["outgoing"]],
+    )
+
+
+@router.get("/documents/{doc_id}/related", response_model=RelatedResponse)
+def related_endpoint(
+    doc_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    engine: Engine = Depends(get_engine_dep),
+) -> RelatedResponse:
+    try:
+        result = find_related(engine, doc_id, limit=limit)
+    except DocNotFoundError:
+        raise HTTPException(
+            404,
+            detail=ErrorBody(code="DOC_NOT_FOUND", message=f"文档 {doc_id} 不存在").model_dump(),
+        ) from None
+    return RelatedResponse(
+        document_id=result["document_id"],
+        items=[RelatedItem(**it) for it in result["items"]],
     )
 
 
