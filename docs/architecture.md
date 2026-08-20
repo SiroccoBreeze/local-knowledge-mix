@@ -107,7 +107,9 @@ wiki 生成、知识图谱 UI、auth、任何 PostgreSQL/Redis/ES/Milvus/Qdrant/
    smart 在候选内重排后本地切片分页，`total` 仍为 FTS 命中计数。
 3. **权重是实验参数**：`RANK_WEIGHTS`（title 3.0 / phrase 2.0 / heading 1.5 / tag 1.5 /
    path 1.0 / body 0.4）集中在 `search/query.py` 一个常量表，可随真实数据调整，
-   不算架构规则。related 权重同样走 `RELATED_WEIGHTS`（Phase 6）。
+   不算架构规则。related 权重集中在 `RELATED_WEIGHTS`（Phase 6–7 已落地，
+   `service/related.py`；df 按文档频次去噪；结果排除 missing/failed/断链/url，
+   复杂度 O(N) 非 O(N²)）。
 4. **search_mode**：`keyword`=legacy 完全一致；`smart`（默认）召回与 keyword 严格一致，
    只做 rerank / matched_terms / 更好 snippet。
 5. **知识状态**：`frontmatter.resolved==true→"resolved"`、`==false→"unresolved"`、其余 null；

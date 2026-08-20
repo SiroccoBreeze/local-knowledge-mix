@@ -138,7 +138,9 @@ cd backend
 
 `GET /api/v1/documents` · `GET /api/v1/documents/{id}` · `GET /api/v1/documents/{id}/content`
 
-`GET /api/v1/documents/{id}/neighbors` · `GET /api/v1/search?q=` · `GET /api/v1/raw/{rel_path}`（图片等媒体，仅 raw/ 内白名单类型）
+`GET /api/v1/documents/{id}/neighbors` · `GET /api/v1/documents/{id}/related`
+
+`GET /api/v1/search?q=` · `GET /api/v1/raw/{rel_path}`（图片等媒体，仅 raw/ 内白名单类型）
 
 ## 测试与检查
 
