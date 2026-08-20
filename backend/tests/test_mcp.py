@@ -33,16 +33,13 @@ def mcp(corpus, engine, assets):
     return make_server(engine)
 
 
-async def _invoke(server, name: str, args: dict) -> tuple[dict | list | str, bool]:
-    contents, meta = await server.call_tool(name, args)
-    is_error = bool(
-        getattr(meta, "isError", False) or (isinstance(meta, dict) and meta.get("isError"))
-    )
-    text = contents[0].text if contents else ""
-    try:
-        return json.loads(text), is_error
-    except json.JSONDecodeError:
-        return text, is_error
+@pytest.fixture()
+def knowledge(settings):
+    """三种 frontmatter 状态的可验证文档。"""
+    write_doc(settings, "notes/know_true.md", "---\ntitle: 已解决的知识\ntags: [HIS]\nresolved: true\n---\n内容甲。\n")
+    write_doc(settings, "notes/know_false.md", "---\ntitle: 未解决的知识\nresolved: false\n---\n内容乙。\n")
+    write_doc(settings, "notes/know_state.md", "---\ntitle: 带状态的知识\nstatus: deprecated\n---\n内容丙。\n")
+    write_doc(settings, "notes/know_none.md", "---\ntitle: 无状态的知识\n---\n内容丁。\n")
 
 
 def call(server, name: str, args: dict) -> tuple[dict | list | str, bool]:
@@ -64,9 +61,10 @@ def doc_id(engine, rel: str) -> int:
     return doc_by_rel(engine, rel)["id"]
 
 
-def test_registers_six_tools(mcp):
+def test_registers_seven_tools(mcp):
     names = sorted(t.name for t in asyncio.run(mcp.list_tools()))
     assert names == [
+        "find_related_documents",
         "get_document",
         "get_document_assets",
         "get_document_links",
@@ -211,3 +209,117 @@ def test_mcp_reads_live_file_after_edit(mcp, settings, engine):
     assert not err
     assert "面对象新内容" in result["content"]
     assert result["content"].encode("utf-8") == (settings.raw_root / "notes" / "special.md").read_bytes()
+
+
+# ---------- V0.5 Phase 8–9：search_mode / related / knowledge_status ----------
+
+def test_search_documents_defaults_to_smart(mcp, engine):
+    result, err = call(mcp, "search_documents", {"query": "sqlite"})
+    assert not err
+    assert result["search_mode"] == "smart"
+    hit = result["hits"][0]
+    assert "matched_terms" in hit
+    # 无 HTML / 无 <mark> / 无绝对路径
+    assert "<mark>" not in hit["snippets"][0]["text"]
+    assert result["query"] == "sqlite"
+
+
+def test_search_documents_keyword_legacy(mcp, engine):
+    kw, _ = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "keyword"})
+    assert kw["search_mode"] == "keyword"
+    assert all("matched_terms" not in h for h in kw["hits"])
+    # keyword 保留原始 bm25（可能为负）
+    assert isinstance(kw["hits"][0]["score"], (int, float))
+
+
+def test_smart_recall_equals_keyword(mcp, engine):
+    kw, _ = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "keyword"})
+    sm, _ = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "smart"})
+    assert kw["total"] == sm["total"] == 2
+    assert {h["rel_path"] for h in kw["hits"]} == {h["rel_path"] for h in sm["hits"]}
+
+
+def test_smart_scores_desc_high_is_relevant(mcp, engine):
+    sm, err = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "smart"})
+    assert not err
+    scores = [h["score"] for h in sm["hits"]]
+    assert scores == sorted(scores, reverse=True)
+    assert all(s >= 0 for s in scores)
+
+
+def test_smart_returns_matched_terms(mcp, engine):
+    sm, _ = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "smart"})
+    hit = sm["hits"][0]
+    assert set(hit["matched_terms"]) == {"sqlite"}
+
+
+def test_invalid_search_mode_is_stable_error(mcp):
+    result, err = call(mcp, "search_documents", {"query": "sqlite", "search_mode": "bogus"})
+    assert err
+    assert "search_mode" in str(result)
+
+
+def test_find_related_documents(mcp, engine, settings):
+    # 复用 corpus：start.md 与 中文笔记 同目录 + 共享标题词（中文笔记）+ 链接
+    start_id = doc_by_rel(engine, "notes/start.md")["id"]
+    result, err = call(mcp, "find_related_documents", {"document_id": start_id})
+    assert not err
+    assert result["document_id"] == start_id
+    assert start_id not in {it["doc_id"] for it in result["items"]}
+    if result["items"]:
+        item = result["items"][0]
+        assert {"doc_id", "title", "rel_path", "score", "reasons"} <= set(item)
+        assert item["reasons"]
+
+
+def test_find_related_documents_not_found(mcp):
+    result, err = call(mcp, "find_related_documents", {"document_id": 999999})
+    assert err
+    assert "不存在" in str(result)
+
+
+def test_find_related_missing_document_excluded(corpus, settings, engine, mcp):
+
+    did = doc_by_rel(engine, "notes/start.md")["id"]
+    (settings.raw_root / "notes" / "start.md").unlink()
+    run_scan(engine)
+    result, err = call(mcp, "find_related_documents", {"document_id": did})
+    assert err  # 文档已 missing，不在 indexed 集合中 -> 明确错误
+
+
+def test_get_document_knowledge_status(mcp, engine, knowledge):
+    run_scan(engine)
+    cases = [
+        ("notes/know_true.md", "resolved"),
+        ("notes/know_false.md", "unresolved"),
+        ("notes/know_state.md", "deprecated"),
+        ("notes/know_none.md", None),
+        ("notes/start.md", None),  # 无 frontmatter 状态
+    ]
+    for rel, expected in cases:
+        did = doc_by_rel(engine, rel)["id"]
+        result, err = call(mcp, "get_document", {"document_id": did})
+        assert not err, rel
+        assert result["knowledge_status"] == expected, rel
+
+
+def test_mcp_output_has_no_absolute_paths(mcp, engine):
+    result, _ = call(mcp, "search_documents", {"query": "sqlite"})
+    joined = json.dumps(result, ensure_ascii=False)
+    assert "/home/" not in joined
+    assert "knowledge.db" not in joined
+    assert "/raw/" not in joined  # 相对路径 rel_path 才是对外形态
+    doc, _ = call(mcp, "get_document", {"document_id": result["hits"][0]["doc_id"]})
+    assert "/home/" not in json.dumps(doc)
+    assert "/raw/" not in json.dumps(doc)
+
+
+def test_find_related_does_not_touch_raw(corpus, settings, engine, mcp):
+    from tests.conftest import file_snapshot as snap
+
+    before = snap(settings.raw_root)
+    start_id = doc_by_rel(engine, "notes/start.md")["id"]
+    call(mcp, "find_related_documents", {"document_id": start_id})
+    call(mcp, "search_documents", {"query": "sqlite", "search_mode": "smart"})
+    call(mcp, "find_related_documents", {"document_id": 999999})
+    assert snap(settings.raw_root) == before

@@ -13,16 +13,24 @@ from app.search.query import search as fts_search
 from app.service.assets import doc_assets
 from app.service.docs import DocNotFoundError, fetch_doc_row, list_documents, read_document
 from app.service.links import get_neighbors
+from app.service.related import find_related
 from app.service.stats import knowledge_stats
+
+SEARCH_MODES = ("smart", "keyword")
 
 
 class ToolError(ValueError):
-    """MCP 工具业务错误（由 FastMCP 转成 isError 结果返回）。"""
+    """MCP 工具业务错误（由 FastMCP 转成结构化错误返回，不泄漏 SQLite 异常）。"""
 
 
 def _require_doc(engine: Engine, doc_id: int) -> None:
     if fetch_doc_row(engine, doc_id) is None:
         raise ToolError(f"文档 {doc_id} 不存在")
+
+
+def _plain_snippet(text_html: str) -> str:
+    """snippet HTML（含 <mark>）→ 纯文本（MCP 消费者是 LLM，不要 HTML）。"""
+    return html.unescape(text_html.replace("<mark>", "").replace("</mark>", ""))
 
 
 def search_documents_tool(
@@ -31,32 +39,42 @@ def search_documents_tool(
     *,
     limit: int = 20,
     offset: int = 0,
+    search_mode: str = "smart",
 ) -> dict:
-    """FTS5 全文检索（复用现有 search 逻辑，snippet 转纯文本供 LLM 使用）。"""
+    """FTS5 全文检索（复用 search/query.search）。
+
+    smart（默认）：Phase 4–5 重排 —— score 越高越相关、带 matched_terms、多词 snippet；
+    keyword：legacy 行为完全一致（原始 bm25 序，无 matched_terms）。
+    """
     if not query.strip():
-        return {"query": query, "total": 0, "hits": []}
+        return {"query": query, "search_mode": search_mode, "total": 0, "hits": []}
+    if search_mode not in SEARCH_MODES:
+        raise ToolError(f"未知 search_mode {search_mode!r}，仅支持 smart / keyword")
     try:
-        result = fts_search(engine, query, limit=limit, offset=offset)
-    except Exception as exc:  # noqa: BLE001 — 查询语法错误转成友好提示
+        result = fts_search(engine, query, limit=limit, offset=offset, mode=search_mode)
+    except Exception as exc:  # noqa: BLE001 — FTS 语法错误 -> 友好提示
         raise ToolError(f"查询语法无效: {exc}") from exc
-    hits = [
-        {
+
+    hits = []
+    for hit in result.hits:
+        item = {
             "doc_id": hit.doc["id"],
             "title": hit.doc["title"],
             "rel_path": hit.doc["rel_path"],
             "score": hit.score,
             "snippets": [
                 {
-                    "text": html.unescape(s.text.replace("<mark>", "").replace("</mark>", "")),
+                    "text": _plain_snippet(s.text),
                     "start_line": s.start_line,
                     "end_line": s.end_line,
                 }
                 for s in hit.snippets
             ],
         }
-        for hit in result.hits
-    ]
-    return {"query": query, "total": result.total, "hits": hits}
+        if search_mode == "smart":
+            item["matched_terms"] = hit.matched_terms
+        hits.append(item)
+    return {"query": query, "search_mode": search_mode, "total": result.total, "hits": hits}
 
 
 def get_document_tool(engine: Engine, document_id: int) -> dict:
@@ -75,6 +93,7 @@ def get_document_tool(engine: Engine, document_id: int) -> dict:
         "sha256": doc["sha256"],
         "frontmatter": doc["frontmatter"],
         "headings": doc["headings"],
+        "knowledge_status": doc.get("knowledge_status"),
         "content": doc["content"],
     }
 
@@ -160,6 +179,14 @@ def get_document_assets_tool(engine: Engine, document_id: int) -> dict:
     }
 
 
+def find_related_documents_tool(engine: Engine, document_id: int, limit: int = 10) -> dict:
+    """相关文档（复用 service.related，可解释综合相关性）。"""
+    try:
+        return find_related(engine, document_id, limit=limit)
+    except DocNotFoundError as exc:
+        raise ToolError(str(exc)) from exc
+
+
 def get_knowledge_stats_tool(engine: Engine) -> dict:
     """知识库整体统计（纯索引元数据）。"""
     return knowledge_stats(engine)
@@ -172,5 +199,6 @@ __all__ = [
     "list_documents_tool",
     "get_document_links_tool",
     "get_document_assets_tool",
+    "find_related_documents_tool",
     "get_knowledge_stats_tool",
 ]

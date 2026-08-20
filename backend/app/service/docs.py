@@ -64,6 +64,22 @@ def parse_doc_meta(row: dict) -> dict:
     return out
 
 
+def knowledge_status_of(frontmatter: dict | None) -> str | None:
+    """从 frontmatter 派生知识状态（不建库字段、不改 raw/）。
+
+    resolved: true -> "resolved"；false -> "unresolved"；
+    已有字符串 status -> 原值；都没有 -> None。
+    """
+    fm = frontmatter or {}
+    resolved = fm.get("resolved")
+    if isinstance(resolved, bool):
+        return "resolved" if resolved else "unresolved"
+    status = fm.get("status")
+    if isinstance(status, str) and status.strip():
+        return status.strip()
+    return None
+
+
 def read_document(engine: Engine, doc_id: int) -> dict:
     """文档全文读取：元数据来自索引，正文永远从 raw/ 文件读。"""
     row = fetch_doc_row(engine, doc_id)
@@ -71,7 +87,15 @@ def read_document(engine: Engine, doc_id: int) -> dict:
         raise DocNotFoundError(f"文档 {doc_id} 不存在")
     meta = parse_doc_meta(row)
     meta["content"] = read_raw_bytes(row["rel_path"]).decode("utf-8", errors="replace")
+    meta["knowledge_status"] = knowledge_status_of(meta["frontmatter"])
     return meta
 
 
-__all__ = ["DocNotFoundError", "fetch_doc_row", "list_documents", "read_document", "parse_doc_meta"]
+__all__ = [
+    "DocNotFoundError",
+    "fetch_doc_row",
+    "list_documents",
+    "read_document",
+    "parse_doc_meta",
+    "knowledge_status_of",
+]
