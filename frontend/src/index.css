@@ -85,8 +85,24 @@ mark {
 .code-wrap pre {
   @apply m-0 overflow-x-auto px-4 py-3;
 }
+/* 覆盖 Tailwind Typography 的 .prose pre / pre code（其特异性高于我们的类），
+   强制双主题高对比，杜绝“黑底黑字”。 */
+.prose-md :where(pre),
+.code-wrap pre {
+  background-color: var(--color-slate-100) !important;
+  color: var(--color-slate-800) !important;
+  border-color: var(--color-slate-200) !important;
+}
+.dark .prose-md :where(pre),
+.dark .code-wrap pre {
+  background-color: var(--color-slate-900) !important;
+  color: var(--color-slate-100) !important;
+  border-color: var(--color-slate-700) !important;
+}
+.prose-md :where(pre code),
 .code-wrap pre code {
-  @apply block font-mono text-[13.5px] leading-relaxed text-slate-800 dark:text-slate-100;
+  background: transparent !important;
+  color: inherit !important;
 }
 .prose-md :not(pre) > code {
   @apply rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-[13px] text-slate-800 dark:bg-slate-800 dark:text-slate-100;

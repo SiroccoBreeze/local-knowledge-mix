@@ -2,7 +2,7 @@
 
 import { Archive, BookOpen, Clock, Star } from "lucide-react";
 
-import type { FeedKind } from "./FilterPills";
+import type { FeedKind } from "../feedtypes";
 
 interface Props {
   open: boolean;

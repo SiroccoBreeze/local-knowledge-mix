@@ -7,7 +7,7 @@ import {
 } from "./api";
 import { CommandPalette } from "./components/CommandPalette";
 import { DocFeed, docsToFeed } from "./components/DocFeed";
-import { FilterPills, type FeedKind } from "./components/FilterPills";
+import type { FeedKind } from "./feedtypes";
 import { Navbar } from "./components/Navbar";
 import { ReaderContent } from "./components/ReaderContent";
 import { ShareView } from "./components/ShareView";
@@ -45,7 +45,6 @@ function Shell() {
   const [docs, setDocs] = useState<DocMeta[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [kind, setKind] = useState<FeedKind>({ kind: "all" });
-  const [sort, setSort] = useState<"updated" | "title">("updated");
   const [favorites, setFavorites] = useState<Set<number>>(() => new Set(loadJSON<number[]>(FAV_KEY, [])));
   const [visits, setVisits] = useState<{ id: number; relPath: string; ts: number }[]>(() => loadJSON(RECENT_KEY, []));
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -157,14 +156,14 @@ function Shell() {
     if (!docs) return [] as ReturnType<typeof docsToFeed>;
     if (kind.kind === "recent") {
       const recents = docs.filter((d) => visits.some((v) => v.id === d.id));
-      return docsToFeed(recents, favorites, { sort });
+      return docsToFeed(recents, favorites);
     }
-    if (kind.kind === "favorites") return docsToFeed(docs, favorites, { sort }).filter((it) => it.pinned);
-    if (kind.kind === "all") return docsToFeed(docs, favorites, { sort });
+    if (kind.kind === "favorites") return docsToFeed(docs, favorites).filter((it) => it.pinned);
+    if (kind.kind === "all") return docsToFeed(docs, favorites);
     const dir = kind.dir;
     const filtered = docs.filter((d) => (dir === null ? true : d.rel_path.startsWith(`${dir}/`)));
-    return docsToFeed(filtered, favorites, { sort });
-  }, [docs, kind, sort, favorites, visits]);
+    return docsToFeed(filtered, favorites);
+  }, [docs, kind, favorites, visits]);
 
   const collections = useMemo(() => {
     if (!docs) return [] as { dir: string; count: number }[];
@@ -216,15 +215,6 @@ function Shell() {
           onOpenSearch={() => setPaletteOpen(true)}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
         />
-        <FilterPills
-          docs={docs ?? []}
-          favorites={favorites}
-          active={kind}
-          sort={sort}
-          onSelect={setKind}
-          onSort={setSort}
-        />
-
         {!activeDoc && (
         <main className="mx-auto w-full max-w-[960px] flex-1 overflow-y-auto px-4 py-5">
           {kind.kind === "all" && (
