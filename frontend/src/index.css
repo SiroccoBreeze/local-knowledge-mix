@@ -158,3 +158,8 @@ mark {
 .weak-heading:first-child {
   @apply mt-0;
 }
+
+/* 响应式防御：正文断词，避免长文本横向溢出 */
+.prose-md {
+  overflow-wrap: break-word;
+}

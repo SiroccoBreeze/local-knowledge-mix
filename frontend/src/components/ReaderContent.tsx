@@ -168,8 +168,8 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
       )}
 
       {zoom && (
-        <div className="lightbox" onClick={() => setZoom(null)}>
-          <img src={zoom.src} alt={zoom.alt} />
+        <div className="lightbox" role="dialog" aria-label={zoom.alt || "图片预览"} onClick={() => setZoom(null)}>
+          <img src={zoom.src} alt={zoom.alt || "图片预览"} />
           {zoom.alt && <div className="lightbox-caption">{zoom.alt}</div>}
         </div>
       )}

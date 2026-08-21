@@ -230,21 +230,23 @@ export function RelatedDocs({
       <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
         相关文档（{items.length}）
       </h3>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {items.map((it) => (
           <button
             key={it.doc_id}
             onClick={() => onOpen(it.doc_id, it.rel_path)}
-            className="block w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800/70"
+            className="group/rel block w-full rounded-lg border-l-2 border-transparent py-1.5 pl-3 pr-2 text-left transition-all duration-150 hover:border-zinc-300 hover:bg-zinc-100 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
           >
-            <span className="block text-[14.5px] font-medium text-zinc-800 dark:text-zinc-100">
-              {it.title}
-            </span>
-            <span className="mt-0.5 block truncate font-mono text-[12px] text-zinc-400 dark:text-zinc-500">
-              {it.rel_path} · 相关度 {it.score.toFixed(2)}
+            <span className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-zinc-800 dark:text-zinc-100">
+                {it.title}
+              </span>
+              <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                {it.score.toFixed(2)}
+              </span>
             </span>
             {it.reasons && it.reasons.length > 0 && (
-              <span className="mt-0.5 block text-[12px] text-amber-600 dark:text-amber-400">
+              <span className="mt-0.5 block text-[11.5px] text-amber-600/90 dark:text-amber-400/80">
                 {it.reasons.slice(0, 2).map((r) => RELATED_REASON_LABELS[r] ?? r).join(" · ")}
               </span>
             )}
