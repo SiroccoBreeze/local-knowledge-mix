@@ -242,7 +242,7 @@ export function RelatedDocs({
                 {it.title}
               </span>
               <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
-                {it.score.toFixed(2)}
+                相关度 {it.score.toFixed(2)}
               </span>
             </span>
             {it.reasons && it.reasons.length > 0 && (

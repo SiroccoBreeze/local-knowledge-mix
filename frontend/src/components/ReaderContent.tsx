@@ -82,7 +82,7 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
   return (
     <div className="flex h-full flex-col">
       {/* 文档头 */}
-      <div className={compact ? "px-5 pt-5 pb-3" : "px-5 pt-4 pb-3"}>
+      <div className={compact ? "mx-auto w-full max-w-[780px] px-6 pt-5 pb-3" : "mx-auto w-full max-w-[780px] px-6 pt-4 pb-3"}>
         {(onBack || compact) && (
           <div className="mb-2 flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
             {onBack ? (
@@ -110,7 +110,7 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
             </div>
           </div>
         )}
-        <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{header?.title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{header?.title}</h1>
         <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-zinc-500 dark:text-zinc-400">
           <span>{header?.category}</span>
           <span className="text-zinc-300 dark:text-zinc-600">·</span>
@@ -153,17 +153,17 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
       ) : content === null ? (
         <SkeletonDoc />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-16">
+        <div className="mx-auto w-full max-w-[780px] min-h-0 flex-1 overflow-y-auto px-6 pb-16">
           <div
             className="prose-md markdown-body"
             dangerouslySetInnerHTML={{ __html: html }}
             onClick={handleClick}
           />
+          <RelatedDocs items={related.items} loading={related.loading} error={related.error} onOpen={onOpen} />
           {assets.length > 0 && <AssetPanel assets={assets} />}
           {(outgoing.length > 0 || incoming.length > 0) && (
             <LinkPanels outgoing={outgoing} incoming={incoming} onOpen={onOpen} />
           )}
-          <RelatedDocs items={related.items} loading={related.loading} error={related.error} onOpen={onOpen} />
         </div>
       )}
 

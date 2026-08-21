@@ -24,7 +24,18 @@ export function PostCard({ item, onOpen, onCopy, onTogglePin }: Props) {
   return (
     <article
       onClick={onOpen}
-      className="group cursor-pointer rounded-xl border border-transparent bg-white p-3 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:bg-zinc-900 dark:hover:border-slate-600"
+      onKeyDown={(e) => {
+        // 仅当卡片本体聚焦时响应 Enter / Space（内部复制/固定按钮不重复触发）
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      tabIndex={0}
+      role="button"
+      aria-label={item.title}
+      className="group cursor-pointer rounded-xl border border-transparent bg-white p-3 text-left outline-none transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400 hover:border-slate-300 hover:shadow-md dark:bg-zinc-900 dark:hover:border-slate-600 dark:focus-visible:outline-zinc-500"
     >
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-zinc-100 px-2 py-px font-medium tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
