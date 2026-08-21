@@ -49,7 +49,7 @@ export function DocFeed({ title, items, empty, onOpen, onCopy, onTogglePin }: Pr
       {title && (
         <h2 className="mb-4 text-lg font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h2>
       )}
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {items.map((it) => (
           <PostCard
             key={it.id}

@@ -24,10 +24,10 @@ export function PostCard({ item, onOpen, onCopy, onTogglePin }: Props) {
   return (
     <article
       onClick={onOpen}
-      className="group cursor-pointer rounded-2xl border border-transparent bg-white p-5 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:bg-zinc-900 dark:hover:border-slate-600"
+      className="group cursor-pointer rounded-xl border border-transparent bg-white p-3 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-md dark:bg-zinc-900 dark:hover:border-slate-600"
     >
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 font-medium tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded-full bg-zinc-100 px-2 py-px font-medium tracking-wide text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
           {item.collection}
         </span>
         {item.score !== undefined && (
@@ -38,18 +38,18 @@ export function PostCard({ item, onOpen, onCopy, onTogglePin }: Props) {
         <span className="ml-auto text-zinc-400 dark:text-zinc-500">{item.updatedAt}</span>
       </div>
 
-      <h3 className="mt-2.5 text-[17px] font-bold leading-snug tracking-tight text-zinc-900 group-hover:underline decoration-zinc-300 underline-offset-4 dark:text-zinc-100 dark:decoration-zinc-700">
+      <h3 className="mt-1.5 break-words text-[15px] font-bold leading-snug tracking-tight text-zinc-900 group-hover:underline decoration-zinc-300 underline-offset-4 dark:text-zinc-100 dark:decoration-zinc-700">
         {item.title}
       </h3>
 
       {item.highlight && (
         <p
-          className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
+          className="mt-1 line-clamp-2 text-[13px] leading-snug text-zinc-600 dark:text-zinc-300"
           dangerouslySetInnerHTML={{ __html: item.highlight }}
         />
       )}
 
-      <div className="mt-3 flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+      <div className="mt-2 flex items-center gap-1 text-[11.5px] text-zinc-400 dark:text-zinc-500">
         <button
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
           onClick={(e) => {

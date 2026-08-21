@@ -93,17 +93,17 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
               <span className="text-xs text-zinc-400">只读分享</span>
             )}
             <div className="flex items-center gap-1">
-              <IconBtn title="复制全文" onClick={copyFull}>
+              <IconBtn title="复制原文" onClick={copyFull}>
                 <Copy className="h-3.5 w-3.5" />
               </IconBtn>
-              <IconBtn title="在新窗口打开" onClick={share}>
+              <IconBtn title="分享" onClick={share}>
                 <Share2 className="h-3.5 w-3.5" />
               </IconBtn>
               <IconBtn title="收藏" onClick={() => onToggleFavorite(docId)} active={favorite}>
                 <Star className={`h-3.5 w-3.5 ${favorite ? "fill-amber-400 text-amber-400" : ""}`} />
               </IconBtn>
               {!compact && (
-                <a href={`/share/${docId}`} className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-200/70 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100" title="查看分享页">
+                <a href={`/share/${docId}`} className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-200/70 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-100" title="新窗口打开">
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               )}
@@ -111,11 +111,18 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
           </div>
         )}
         <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">{header?.title}</h1>
-        <p className="mt-1 text-[13px] text-zinc-500 dark:text-zinc-400">
-          {header?.category} · {header?.modifiedAt}
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-zinc-500 dark:text-zinc-400">
+          <span>{header?.category}</span>
+          <span className="text-zinc-300 dark:text-zinc-600">·</span>
+          <span>{header?.created ?? header?.modifiedAt}</span>
+          {header?.knowledge && (
+            <span className="rounded-full bg-emerald-500/10 px-2 py-px text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              {header.knowledge}
+            </span>
+          )}
           {header && header.tags.length > 0 && (
-            <span className="ml-2 space-x-2">
-              {header.tags.slice(0, 4).map((t) => (
+            <span className="flex flex-wrap gap-x-2 gap-y-1">
+              {header.tags.slice(0, 5).map((t) => (
                 <span key={t} className="text-zinc-400 dark:text-zinc-500">
                   #{t}
                 </span>
@@ -123,6 +130,21 @@ export function ReaderContent({ docId, favorite, onToggleFavorite, onOpen, onBac
             </span>
           )}
         </p>
+        <details className="mt-2 text-[12px] text-zinc-400 dark:text-zinc-500">
+          <summary className="cursor-pointer select-none text-[11px] uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+            更多信息
+          </summary>
+          <dl className="mt-1.5 grid grid-cols-[72px_1fr] gap-x-3 gap-y-1 font-mono text-[12px]">
+            <dt className="text-zinc-400 dark:text-zinc-500">ID</dt>
+            <dd className="break-all">{meta?.id}</dd>
+            <dt className="text-zinc-400 dark:text-zinc-500">路径</dt>
+            <dd className="break-all">{header?.relPath}</dd>
+            <dt className="text-zinc-400 dark:text-zinc-500">状态</dt>
+            <dd>{meta?.status}</dd>
+            <dt className="text-zinc-400 dark:text-zinc-500">sha256</dt>
+            <dd className="break-all">{meta?.sha256}</dd>
+          </dl>
+        </details>
       </div>
 
       {/* 正文 */}

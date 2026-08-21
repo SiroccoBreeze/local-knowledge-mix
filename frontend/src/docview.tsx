@@ -297,23 +297,43 @@ const RELATED_REASON_LABELS: Record<string, string> = {
   term_similarity: "内容相关",
 };
 
+export function fmtCnDate(value: string | number): string {
+  let d: Date;
+  const raw = String(value);
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(raw);
+  if (m) d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  else if (typeof value === "number") d = new Date(value / 1_000_000);
+  else d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
 export interface DocHeaderInfo {
   relPath: string;
   title: string;
   category: string;
   modifiedAt: string;
+  created?: string; // 人类化日期（取自 frontmatter.created，缺省用 mtime）
+  knowledge?: string | null; // resolved→已解决 / 未解决；status 字符串透传
   tags: string[];
 }
 
 export function docHeaderOf(meta: DocMeta): DocHeaderInfo {
-  const tagsRaw = meta.frontmatter?.tags;
+  const fm = meta.frontmatter ?? {};
+  const tagsRaw = fm.tags;
   const tags =
     Array.isArray(tagsRaw) ? tagsRaw.map(String) : typeof tagsRaw === "string" ? [tagsRaw] : [];
+  let knowledge: string | null = null;
+  if (typeof fm.resolved === "boolean") knowledge = fm.resolved ? "已解决" : "未解决";
+  else if (typeof fm.status === "string" && fm.status.trim()) knowledge = fm.status.trim();
+  const createdRaw = typeof fm.created === "string" ? fm.created : undefined;
   return {
     relPath: meta.rel_path,
     title: meta.title || meta.rel_path,
     category: categoryOf(meta.rel_path),
     modifiedAt: fmtDate(meta.mtime_ns),
+    created: createdRaw ? fmtCnDate(createdRaw) : undefined,
+    knowledge,
     tags,
   };
 }

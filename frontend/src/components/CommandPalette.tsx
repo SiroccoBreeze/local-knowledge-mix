@@ -13,6 +13,7 @@ export interface HitY {
   collection: string;
   updatedAtNs: number;
   score?: number;
+  matched?: string[];
   highlight?: string;
 }
 
@@ -125,11 +126,22 @@ export function CommandPalette({ open, onClose, onOpenDoc }: Props) {
                     dangerouslySetInnerHTML={{ __html: hit.highlight }}
                   />
                 )}
-                {hit.score !== undefined && (
-                  <span className="mt-1 inline-block rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-400">
-                    相关度 {hit.score.toFixed(2)}
-                  </span>
-                )}
+                <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {hit.score !== undefined && (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-400">
+                      相关度 {hit.score.toFixed(2)}
+                    </span>
+                  )}
+                  {hit.matched && hit.matched.length > 0 && (
+                    <span className="inline-flex flex-wrap gap-1">
+                      {hit.matched.slice(0, 6).map((t) => (
+                        <i key={t} className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] not-italic text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                          {t}
+                        </i>
+                      ))}
+                    </span>
+                  )}
+                </span>
               </button>
             ))
           )}

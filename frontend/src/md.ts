@@ -125,6 +125,9 @@ export function renderMarkdown({ content, relPath, linkMap }: DomProps): string 
   const renderer: RendererObject = {
     heading({ tokens, depth }) {
       const text = esc(tokens.map(tokenText).join(""));
+      if (text.trim() === "内容") {
+        return `<h2 class="weak-heading">${text}</h2>`;
+      }
       const id = uniqueId(slugify(text));
       const size = depth <= 6 ? depth : 6;
       return `<h${size} id="${id}">${text}</h${size}>`;
