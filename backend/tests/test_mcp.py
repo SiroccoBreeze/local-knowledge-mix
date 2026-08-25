@@ -61,7 +61,7 @@ def doc_id(engine, rel: str) -> int:
     return doc_by_rel(engine, rel)["id"]
 
 
-def test_registers_seven_tools(mcp):
+def test_registers_eight_tools(mcp):
     names = sorted(t.name for t in asyncio.run(mcp.list_tools()))
     assert names == [
         "find_related_documents",
@@ -70,6 +70,7 @@ def test_registers_seven_tools(mcp):
         "get_document_links",
         "get_knowledge_stats",
         "list_documents",
+        "retrieve_context",
         "search_documents",
     ]
 

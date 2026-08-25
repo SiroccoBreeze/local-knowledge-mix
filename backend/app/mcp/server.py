@@ -67,6 +67,20 @@ def make_server(engine: Engine | None = None) -> FastMCP:
     def find_related_documents(document_id: int, limit: int = 10) -> dict:
         return tools.find_related_documents_tool(provider(), document_id, limit=limit)
 
+    @server.tool(description="检索知识库（search + 可选 related）→ 安全、纯文本 AI Context（经 Context Builder 清洗）。无 HTML、无绝对路径、无 SQL/DB 泄漏。")
+    def retrieve_context(
+        query: str | None = None,
+        limit: int = 8,
+        include_related: bool = True,
+        document_id: int | None = None,
+        max_chars: int = 12000,
+        search_mode: str = "smart",
+    ) -> dict:
+        return tools.retrieve_context_tool(
+            provider(), query, limit=limit, include_related=include_related,
+            document_id=document_id, max_chars=max_chars, search_mode=search_mode,
+        )
+
     @server.tool(description="知识库整体统计：文档/资产/链接数、索引与缺失数、最近扫描时间。")
     def get_knowledge_stats() -> dict:
         return tools.get_knowledge_stats_tool(provider())

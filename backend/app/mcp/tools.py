@@ -9,6 +9,8 @@ import html
 
 from sqlalchemy import Engine
 
+from app.retrieval.context import merge_contexts
+from app.retrieval.contract import related_retrieval, search_retrieval
 from app.search.query import search as fts_search
 from app.service.assets import doc_assets
 from app.service.docs import DocNotFoundError, fetch_doc_row, list_documents, read_document
@@ -187,6 +189,51 @@ def find_related_documents_tool(engine: Engine, document_id: int, limit: int = 1
         raise ToolError(str(exc)) from exc
 
 
+def retrieve_context_tool(
+    engine: Engine,
+    query: str | None = None,
+    *,
+    limit: int = 8,
+    include_related: bool = True,
+    document_id: int | None = None,
+    max_chars: int = 12000,
+    search_mode: str = "smart",
+) -> dict:
+    """检索知识库并返回经 Context Builder 安全清洗的纯文本 AI Context。"""
+    results = []
+    total = 0
+
+    if query and query.strip():
+        sr = search_retrieval(engine, query, limit=limit, mode=search_mode)
+        total = sr.total
+        results.append(sr)
+
+    if document_id is not None and include_related:
+        try:
+            rr = related_retrieval(engine, document_id, limit=limit)
+            results.append(rr)
+        except DocNotFoundError as exc:
+            if not results:
+                raise ToolError(f"文档 {document_id} 不存在") from exc
+
+    if not results:
+        if not query or not query.strip():
+            raise ToolError("查询词不可为空")
+        raise ToolError("未检索到结果")
+
+    context = merge_contexts(results, max_docs=limit, max_chars=max_chars)
+
+    seen: set[int] = set()
+    items = []
+    for r in results:
+        for it in r.items:
+            if it.document_id not in seen:
+                seen.add(it.document_id)
+                items.append({"doc_id": it.document_id, "title": it.title, "rel_path": it.rel_path, "score": it.score})
+
+    return {"query": query or "", "total": total, "items": items[:limit], "context": context}
+
+
 def get_knowledge_stats_tool(engine: Engine) -> dict:
     """知识库整体统计（纯索引元数据）。"""
     return knowledge_stats(engine)
@@ -200,5 +247,6 @@ __all__ = [
     "get_document_links_tool",
     "get_document_assets_tool",
     "find_related_documents_tool",
+    "retrieve_context_tool",
     "get_knowledge_stats_tool",
 ]
